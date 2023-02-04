@@ -61,7 +61,23 @@ impl Default for SendView {
 impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
         self.accept_dropped_file(ui);
+        self.transition_from_connecting_to_sending(ui);
+        self.transition_from_sending_to_complete();
 
+        match self {
+            SendView::Ready => self.show_file_selection_page(ui),
+            SendView::Connecting(ref promise, ref send_request)
+                if let Some((welcome, _)) = promise.ready() =>
+            {
+                self.show_transmit_code(ui, welcome, send_request.path());
+            }
+            SendView::Connecting(..) => self.show_transmit_code_progress(ui),
+            SendView::Sending(_, transit_info, progress) => show_transfer_progress(ui, progress, transit_info),
+            SendView::Complete => self.show_transfer_completed_page(ui),
+        }
+    }
+
+    fn transition_from_connecting_to_sending(&mut self, ui: &mut Ui) {
         if let SendView::Connecting(ref mut promise, send_request) = self
             && let Some((_, ref mut connect_promise)) = promise.ready_mut()
             && let Some(wormhole) = connect_promise.ready_mut()
@@ -86,23 +102,13 @@ impl SendView {
             };
             *self = SendView::Sending(promise, transit_receiver, progress_receiver);
         }
+    }
 
+    fn transition_from_sending_to_complete(&mut self) {
         if let SendView::Sending(sending_promise, _, _) = self
             && let Some(_) = sending_promise.ready()
         {
             *self = SendView::Complete;
-        }
-
-        match self {
-            SendView::Ready => self.show_file_selection_page(ui),
-            SendView::Connecting(ref promise, ref send_request)
-                if let Some((welcome, _)) = promise.ready() =>
-            {
-                self.show_transmit_code(ui, welcome, send_request.path());
-            }
-            SendView::Connecting(..) => self.show_transmit_code_progress(ui),
-            SendView::Sending(_, transit_info, progress) => show_transfer_progress(ui, progress, transit_info),
-            SendView::Complete => self.show_transfer_completed_page(ui),
         }
     }
 

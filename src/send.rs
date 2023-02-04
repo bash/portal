@@ -51,7 +51,13 @@ impl SendView {
         if let SendView::Connecting(ref mut promise, file_path) = self {
             match promise.ready_mut() {
                 None => {
-                    ui.spinner();
+                    crate::page_with_content(
+                        ui,
+                        "Send File",
+                        "Generating transmit code...",
+                        "📤",
+                        |ui| { ui.spinner(); },
+                    );
                 }
                 Some((welcome, connect_promise)) => match connect_promise.ready_mut() {
                     None => {

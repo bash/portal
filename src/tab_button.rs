@@ -22,7 +22,7 @@ impl TabButton {
 impl Widget for TabButton {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.scope(|ui| {
-            ui.style_mut().spacing.button_padding = Vec2::new(10.0, 8.0);
+            ui.style_mut().spacing.button_padding = Vec2::new(20.0, 8.0);
             ui.selectable_label(self.selected, self.text)
         })
         .inner

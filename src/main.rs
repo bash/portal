@@ -79,24 +79,26 @@ impl ViewSwitcher for PortalApp {
     }
 }
 
-pub fn page(
+pub fn page<'a>(
     ui: &mut Ui,
     title: impl Into<RichText>,
     text: impl Into<WidgetText>,
-    icon: impl Into<RichText>,
+    icon: impl Into<Option<&'a str>>,
 ) {
-    ui.label(icon.into().size(120.0));
+    if let Some(icon) = icon.into() {
+        ui.label(RichText::new(icon).size(120.0));
+    }
     ui.add_space(10.0);
     ui.label(title.into().size(30.0).strong());
     ui.add_space(10.0);
     ui.label(text);
 }
 
-pub fn page_with_content(
+pub fn page_with_content<'a>(
     ui: &mut Ui,
     title: impl Into<RichText>,
     text: impl Into<WidgetText>,
-    icon: impl Into<RichText>,
+    icon: impl Into<Option<&'a str>>,
     add_contents: impl FnOnce(&mut Ui),
 ) {
     page(ui, title, text, icon);

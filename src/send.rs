@@ -23,8 +23,14 @@ pub enum SendView {
         Promise<(WormholeWelcome, Promise<Option<Wormhole>>)>,
         PathBuf,
     ),
-    Sending(Promise<()>, svc::Receiver<(u64, u64)>),
+    Sending(Promise<()>, svc::Receiver<Progress>),
     Complete,
+}
+
+#[derive(Default)]
+pub struct Progress {
+    sent: u64,
+    total: u64,
 }
 
 enum SendRequest {
@@ -46,7 +52,7 @@ impl SendView {
             && let Some((_, ref mut connect_promise)) = promise.ready_mut()
             && let Some(wormhole) = connect_promise.ready_mut()
         {
-            let (receiver, updater) = svc::channel_starting_with((0, 0));
+            let (receiver, updater) = svc::channel_starting_with(Progress::default());
             let promise = ui.ctx().spawn_async(send_file(
                 wormhole.take().unwrap(),
                 file_path.clone(),
@@ -171,8 +177,8 @@ impl SendView {
     }
 }
 
-fn show_transfer_progress(ui: &mut Ui, progress: &mut svc::Receiver<(u64, u64)>) {
-    let (sent, total) = *progress.latest();
+fn show_transfer_progress(ui: &mut Ui, progress: &mut svc::Receiver<Progress>) {
+    let Progress { sent, total } = *progress.latest();
     ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
 }
 
@@ -187,7 +193,7 @@ async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Option<Wormhole>>) {
 async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
-    progress: svc::Updater<(u64, u64)>,
+    progress: svc::Updater<Progress>,
     context: Context,
 ) {
     let mut file = File::open(&path).await.unwrap();
@@ -205,7 +211,7 @@ async fn send_file(
         Abilities::ALL_ABILITIES,
         |_, _| {},
         move |sent, total| {
-            _ = progress.update((sent, total));
+            _ = progress.update(Progress { sent, total });
             context.request_repaint()
         },
         future::pending(),

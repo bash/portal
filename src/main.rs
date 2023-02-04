@@ -10,6 +10,7 @@ use receive::ReceiveView;
 use send::SendView;
 use view_switcher::{view_switcher, ViewSwitcher};
 
+mod egui_ext;
 mod receive;
 mod send;
 mod tab_button;

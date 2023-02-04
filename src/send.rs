@@ -1,3 +1,4 @@
+use crate::egui_ext::ContextExt;
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
@@ -46,18 +47,12 @@ impl SendView {
             && let Some(wormhole) = connect_promise.ready_mut()
         {
             let (receiver, updater) = svc::channel_starting_with((0, 0));
-            let ctx = ui.ctx().clone();
-            let wormhole = wormhole.take().unwrap();
-            let file_path = file_path.clone();
-            let promise = Promise::spawn_async(async move {
-                send_file(
-                    wormhole,
-                    file_path,
-                    updater,
-                    ctx.clone(),
-                ).await;
-                ctx.request_repaint();
-            });
+            let promise = ui.ctx().spawn_async(send_file(
+                wormhole.take().unwrap(),
+                file_path.clone(),
+                updater,
+                ui.ctx().clone(),
+            ));
             *self = SendView::Sending(promise, receiver);
         }
 
@@ -171,7 +166,7 @@ impl SendView {
     }
 
     fn connect(&mut self, ui: &mut Ui, file_path: PathBuf) {
-        let promise = Promise::spawn_async(connect(ui.ctx().clone()));
+        let promise = ui.ctx().spawn_async(connect(ui.ctx().clone()));
         *self = SendView::Connecting(promise, file_path);
     }
 }
@@ -185,16 +180,8 @@ async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Option<Wormhole>>) {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4)
         .await
         .unwrap();
-    ctx.request_repaint();
-    let ctx = ctx.clone();
-    (
-        welcome,
-        Promise::spawn_async(async move {
-            let result = future.await.unwrap();
-            ctx.request_repaint();
-            Some(result)
-        }),
-    )
+    let promise = ctx.spawn_async(async { Some(future.await.unwrap()) });
+    (welcome, promise)
 }
 
 async fn send_file(

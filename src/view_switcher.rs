@@ -23,14 +23,10 @@ where
     ui.horizontal(|ui| {
         for (index, view) in views.iter().enumerate() {
             let is_active = active_view_index == index;
-            if ui
-                .add(
-                    TabButton::new(switcher.label(view))
-                        .enabled(buttons_enabled)
-                        .selected(is_active),
-                )
-                .clicked()
-            {
+            let button = TabButton::new(switcher.label(view))
+                .enabled(buttons_enabled)
+                .selected(is_active);
+            if ui.add(button).clicked() {
                 ui.memory().data.insert_persisted(id, index);
             }
         }

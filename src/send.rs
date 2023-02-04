@@ -10,7 +10,7 @@ use magic_wormhole::{
 };
 use poll_promise::Promise;
 use rfd::FileDialog;
-use std::sync::mpsc;
+use single_value_channel as svc;
 use std::{future, path::PathBuf};
 
 pub enum SendView {
@@ -19,7 +19,7 @@ pub enum SendView {
         Promise<(WormholeWelcome, Promise<Option<Wormhole>>)>,
         PathBuf,
     ),
-    Sending((u64, u64), Promise<()>, mpsc::Receiver<(u64, u64)>),
+    Sending(Promise<()>, svc::Receiver<(u64, u64)>),
     Complete,
 }
 
@@ -80,29 +80,25 @@ impl SendView {
                         );
                     }
                     Some(wormhole) => {
-                        let (sender, receiver) = mpsc::channel();
+                        let (receiver, updater) = svc::channel_starting_with((0, 0));
                         let promise = Promise::spawn_async(send_file(
                             wormhole.take().unwrap(),
                             file_path.clone(),
-                            sender,
+                            updater,
                             ui.ctx().clone(),
                         ));
-                        *self = SendView::Sending((0, 0), promise, receiver);
+                        *self = SendView::Sending(promise, receiver);
                         ui.spinner();
                     }
                 },
             };
         }
 
-        if let SendView::Sending(ref mut progress, sending_promise, progress_recv) = self {
-            if let Ok(updated_progress) = progress_recv.try_recv() {
-                dbg!(updated_progress);
-                dbg!(progress.0 as f32 / progress.1 as f32);
-                *progress = updated_progress;
-            }
+        if let SendView::Sending(sending_promise, progress_recv) = self {
             match sending_promise.ready() {
                 None => {
-                    ui.add(ProgressBar::new(progress.0 as f32 / progress.1 as f32).animate(true));
+                    let (sent, total) = *progress_recv.latest();
+                    ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
                 }
                 Some(_) => {
                     *self = SendView::Complete;
@@ -185,7 +181,7 @@ async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Option<Wormhole>>) {
 async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
-    progress: mpsc::Sender<(u64, u64)>,
+    progress: svc::Updater<(u64, u64)>,
     context: Context,
 ) {
     let mut file = File::open(&path).await.unwrap();
@@ -203,7 +199,7 @@ async fn send_file(
         Abilities::ALL_ABILITIES,
         |_, _| {},
         move |sent, total| {
-            _ = progress.send((sent, total));
+            _ = progress.update((sent, total));
             context.request_repaint()
         },
         future::pending(),

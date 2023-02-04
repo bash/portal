@@ -11,5 +11,6 @@ eframe = { version = "0.20.1", features = ["dark-light"] }
 magic-wormhole = "0.6.0"
 poll-promise = { version = "0.2.0", features = ["tokio"] }
 rfd = "0.11.0"
+single_value_channel = "1.2.2"
 tokio = { version = "1.25.0", features = ["rt", "macros"] }
 tracing-subscriber = "0.3"

@@ -11,7 +11,10 @@ use magic_wormhole::{
 use poll_promise::Promise;
 use rfd::FileDialog;
 use single_value_channel as svc;
-use std::{future, path::PathBuf};
+use std::{
+    future,
+    path::{Path, PathBuf},
+};
 
 pub enum SendView {
     Ready,
@@ -38,48 +41,15 @@ impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
         self.accept_dropped_file(ui);
 
-        if let SendView::Ready = self {
-            crate::page_with_content(
-                ui,
-                "Send File",
-                "Select or drop the file or directory to send.",
-                "📤",
-                |ui| self.show_file_selection(ui),
-            );
-        }
-
-        if let SendView::Connecting(ref mut promise, file_path) = self {
-            match promise.ready_mut() {
+        match self {
+            SendView::Ready => self.show_file_selection_page(ui),
+            SendView::Connecting(ref mut promise, file_path) => match promise.ready_mut() {
                 None => {
-                    crate::page_with_content(
-                        ui,
-                        "Send File",
-                        "Generating transmit code...",
-                        "📤",
-                        |ui| {
-                            ui.spinner();
-                        },
-                    );
+                    show_transmit_code_progress(ui);
                 }
                 Some((welcome, connect_promise)) => match connect_promise.ready_mut() {
                     None => {
-                        crate::page_with_content(
-                            ui,
-                            "Your Transmit Code",
-                            format!(
-                                "Ready to send \"{}\".\nThe receiver needs to enter this code to begin the file transfer.",
-                                file_path.file_name().unwrap().to_string_lossy()
-                            ),
-                            "✨",
-                            |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(&welcome.code.0);
-                                    if ui.button("📋").on_hover_text("Click to copy").clicked() {
-                                        ui.output().copied_text = welcome.code.0.clone();
-                                    }
-                                });
-                            }
-                        );
+                        show_transmit_code(ui, welcome, &file_path);
                     }
                     Some(wormhole) => {
                         let (receiver, updater) = svc::channel_starting_with((0, 0));
@@ -90,38 +60,29 @@ impl SendView {
                             ui.ctx().clone(),
                         ));
                         *self = SendView::Sending(promise, receiver);
-                        ui.spinner();
                     }
                 },
-            };
-        }
-
-        if let SendView::Sending(sending_promise, progress_recv) = self {
-            match sending_promise.ready() {
+            },
+            SendView::Sending(sending_promise, progress) => match sending_promise.ready() {
                 None => {
-                    let (sent, total) = *progress_recv.latest();
-                    ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
+                    show_transfer_progress(ui, progress);
                 }
                 Some(_) => {
                     *self = SendView::Complete;
                 }
-            }
+            },
+            SendView::Complete => self.show_transfer_completed_page(ui),
         }
+    }
 
-        if let SendView::Complete = self {
-            ui.horizontal(|ui| {
-                if ui.button("Back").clicked() {
-                    *self = SendView::Ready;
-                }
-            });
-
-            crate::page(
-                ui,
-                "File Transfer Successful",
-                format!("Successfully sent file \"{}\"", "FILENAME"),
-                "✅",
-            );
-        }
+    fn show_file_selection_page(&mut self, ui: &mut Ui) {
+        crate::page_with_content(
+            ui,
+            "Send File",
+            "Select or drop the file or directory to send.",
+            "📤",
+            |ui| self.show_file_selection(ui),
+        );
     }
 
     fn show_file_selection(&mut self, ui: &mut Ui) {
@@ -144,6 +105,21 @@ impl SendView {
         }
     }
 
+    fn show_transfer_completed_page(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("Back").clicked() {
+                *self = SendView::Ready;
+            }
+        });
+
+        crate::page(
+            ui,
+            "File Transfer Successful",
+            format!("Successfully sent file \"{}\"", "FILENAME"),
+            "✅",
+        );
+    }
+
     fn accept_dropped_file(&mut self, ui: &mut Ui) {
         let file_path = ui
             .ctx()
@@ -161,6 +137,43 @@ impl SendView {
         let promise = Promise::spawn_async(connect(ui.ctx().clone()));
         *self = SendView::Connecting(promise, file_path);
     }
+}
+
+fn show_transmit_code_progress(ui: &mut Ui) {
+    crate::page_with_content(
+        ui,
+        "Send File",
+        "Generating transmit code...",
+        "📤",
+        |ui| {
+            ui.spinner();
+        },
+    )
+}
+
+fn show_transmit_code(ui: &mut Ui, welcome: &WormholeWelcome, file_path: &Path) {
+    crate::page_with_content(
+        ui,
+        "Your Transmit Code",
+        format!(
+            "Ready to send \"{}\".\nThe receiver needs to enter this code to begin the file transfer.",
+            file_path.file_name().unwrap().to_string_lossy()
+        ),
+        "✨",
+        |ui| {
+            ui.horizontal(|ui| {
+                ui.label(&welcome.code.0);
+                if ui.button("📋").on_hover_text("Click to copy").clicked() {
+                    ui.output().copied_text = welcome.code.0.clone();
+                }
+            });
+        }
+    );
+}
+
+fn show_transfer_progress(ui: &mut Ui, progress: &mut svc::Receiver<(u64, u64)>) {
+    let (sent, total) = *progress.latest();
+    ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
 }
 
 async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Option<Wormhole>>) {

@@ -4,9 +4,11 @@ use eframe::{
     egui::{self, Layout, RichText},
     emath::Align,
 };
+use receive::ReceiveView;
 use send::SendView;
 use view_switcher::{view_switcher, ViewSwitcher};
 
+mod receive;
 mod send;
 mod tab_button;
 mod view_switcher;
@@ -32,6 +34,7 @@ async fn main() {
 #[derive(Default)]
 struct PortalApp {
     send_view: SendView,
+    receive_view: ReceiveView,
 }
 
 #[derive(PartialEq)]
@@ -65,8 +68,9 @@ impl ViewSwitcher for PortalApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, view: &Self::View) {
-        if let View::Send = view {
-            self.send_view.ui(ui);
+        match view {
+            View::Send => self.send_view.ui(ui),
+            View::Receive => self.receive_view.ui(ui),
         }
     }
 }

@@ -6,14 +6,15 @@ use eframe::{
 };
 use magic_wormhole::{
     transfer,
-    transit::{self, Abilities},
+    transit::{self, Abilities, TransitInfo},
     Wormhole, WormholeWelcome,
 };
 use poll_promise::Promise;
 use rfd::FileDialog;
 use single_value_channel as svc;
 use std::{
-    future,
+    ffi::OsStr,
+    fmt, future,
     path::{Path, PathBuf},
 };
 
@@ -23,7 +24,11 @@ pub enum SendView {
         Promise<(WormholeWelcome, Promise<Option<Wormhole>>)>,
         SendRequest,
     ),
-    Sending(Promise<()>, svc::Receiver<Progress>),
+    Sending(
+        Promise<()>,
+        svc::Receiver<Option<TransitInfo>>,
+        svc::Receiver<Progress>,
+    ),
     Complete,
 }
 
@@ -61,25 +66,28 @@ impl SendView {
             && let Some((_, ref mut connect_promise)) = promise.ready_mut()
             && let Some(wormhole) = connect_promise.ready_mut()
         {
-            let (receiver, updater) = svc::channel_starting_with(Progress::default());
+            let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
+            let (transit_receiver, transit_updater) = svc::channel::<TransitInfo>();
             let promise = match send_request {
                 SendRequest::File(file_path) => ui.ctx().spawn_async(send_file(
                     wormhole.take().unwrap(),
                     file_path.clone(),
-                    updater,
+                    progress_updater,
+                    transit_updater,
                     ui.ctx().clone(),
                 )),
                 SendRequest::Folder(folder_path) => ui.ctx().spawn_async(send_folder(
                     wormhole.take().unwrap(),
                     folder_path.clone(),
-                    updater,
+                    progress_updater,
+                    transit_updater,
                     ui.ctx().clone(),
                 )),
             };
-            *self = SendView::Sending(promise, receiver);
+            *self = SendView::Sending(promise, transit_receiver, progress_receiver);
         }
 
-        if let SendView::Sending(sending_promise, _) = self
+        if let SendView::Sending(sending_promise, _, _) = self
             && let Some(_) = sending_promise.ready()
         {
             *self = SendView::Complete;
@@ -93,7 +101,7 @@ impl SendView {
                 self.show_transmit_code(ui, welcome, send_request.path());
             }
             SendView::Connecting(..) => self.show_transmit_code_progress(ui),
-            SendView::Sending(_, progress) => show_transfer_progress(ui, progress),
+            SendView::Sending(_, transit_info, progress) => show_transfer_progress(ui, progress, transit_info),
             SendView::Complete => self.show_transfer_completed_page(ui),
         }
     }
@@ -196,9 +204,51 @@ impl SendView {
     }
 }
 
-fn show_transfer_progress(ui: &mut Ui, progress: &mut svc::Receiver<Progress>) {
+fn show_transfer_progress(
+    ui: &mut Ui,
+    progress: &mut svc::Receiver<Progress>,
+    transit_info: &mut svc::Receiver<Option<TransitInfo>>,
+) {
     let Progress { sent, total } = *progress.latest();
-    ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
+    match transit_info.latest() {
+        Some(transit_info) => crate::page_with_content(
+            ui,
+            "Sending File",
+            transit_info_message(transit_info, "FILENAME".as_ref()),
+            "📤",
+            |ui| {
+                ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
+            },
+        ),
+        None => crate::page_with_content(
+            ui,
+            "Connected to Peer",
+            "Preparing to send file",
+            "📤",
+            |ui| {
+                ui.spinner();
+            },
+        ),
+    }
+}
+
+struct TransitInfoDisplay<'a>(&'a TransitInfo);
+
+impl<'a> fmt::Display for TransitInfoDisplay<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use TransitInfo::*;
+        match self.0 {
+            Direct => write!(f, " via direct transfer"),
+            Relay { name: None } => write!(f, " via relay"),
+            Relay { name: Some(relay) } => write!(f, " via relay \"{relay}\""),
+            _ => Ok(()),
+        }
+    }
+}
+
+fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String {
+    let filename = filename.to_string_lossy();
+    format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
 async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Option<Wormhole>>) {
@@ -213,7 +263,8 @@ async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    context: Context,
+    transit_info_updater: svc::Updater<Option<TransitInfo>>,
+    ctx: Context,
 ) {
     let mut file = File::open(&path).await.unwrap();
     let metadata = file.metadata().await.unwrap();
@@ -228,10 +279,16 @@ async fn send_file(
         path.file_name().unwrap(),
         file_size,
         Abilities::ALL_ABILITIES,
-        |_, _| {},
+        {
+            let ctx = ctx.clone();
+            move |transit_info, _| {
+                _ = transit_info_updater.update(Some(transit_info));
+                ctx.request_repaint();
+            }
+        },
         move |sent, total| {
             _ = progress.update(Progress { sent, total });
-            context.request_repaint()
+            ctx.request_repaint()
         },
         future::pending(),
     )
@@ -243,7 +300,8 @@ async fn send_folder(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    context: Context,
+    transit_info_updater: svc::Updater<Option<TransitInfo>>,
+    ctx: Context,
 ) {
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
@@ -254,10 +312,16 @@ async fn send_folder(
         &path,
         path.file_name().unwrap(),
         Abilities::ALL_ABILITIES,
-        |_, _| {},
+        {
+            let ctx = ctx.clone();
+            move |transit_info, _| {
+                _ = transit_info_updater.update(Some(transit_info));
+                ctx.request_repaint();
+            }
+        },
         move |sent, total| {
             _ = progress.update(Progress { sent, total });
-            context.request_repaint()
+            ctx.request_repaint()
         },
         future::pending(),
     )

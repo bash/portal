@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![feature(if_let_guard)]
 
 use eframe::{
     egui::{self, Layout, RichText, Ui, WidgetText},

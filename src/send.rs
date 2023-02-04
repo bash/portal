@@ -56,7 +56,9 @@ impl SendView {
                         "Send File",
                         "Generating transmit code...",
                         "📤",
-                        |ui| { ui.spinner(); },
+                        |ui| {
+                            ui.spinner();
+                        },
                     );
                 }
                 Some((welcome, connect_promise)) => match connect_promise.ready_mut() {
@@ -123,9 +125,10 @@ impl SendView {
     }
 
     fn show_file_selection(&mut self, ui: &mut Ui) {
-        if ui
-            .add(Button::new("Select File").min_size(Vec2::new(100.0, 0.0)))
-            .clicked()
+        let min_button_size = Vec2::new(100.0, 0.0);
+
+        let select_file_button = Button::new("Select File").min_size(min_button_size);
+        if ui.add(select_file_button).clicked()
             || ui.input_mut().consume_key(Modifiers::COMMAND, Key::O)
         {
             if let Some(file_path) = FileDialog::new().pick_file() {
@@ -135,10 +138,8 @@ impl SendView {
 
         ui.add_space(5.0);
 
-        if ui
-            .add(Button::new("Select Folder").min_size(Vec2::new(100.0, 0.0)))
-            .clicked()
-        {
+        let select_folder_button = Button::new("Select Folder").min_size(min_button_size);
+        if ui.add(select_folder_button).clicked() {
             let _folder = FileDialog::new().pick_folder();
         }
     }

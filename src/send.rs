@@ -17,6 +17,7 @@ use std::{
     fmt, future,
     path::{Path, PathBuf},
 };
+use take_mut::take;
 
 pub enum SendView {
     Ready,
@@ -24,6 +25,7 @@ pub enum SendView {
         Promise<(WormholeWelcome, Promise<Option<Wormhole>>)>,
         SendRequest,
     ),
+    Connected(WormholeWelcome, SendRequest, Promise<Option<Wormhole>>),
     Sending(
         Promise<()>,
         svc::Receiver<Option<TransitInfo>>,
@@ -38,6 +40,7 @@ pub struct Progress {
     total: u64,
 }
 
+#[derive(Clone)]
 pub enum SendRequest {
     File(PathBuf),
     Folder(PathBuf),
@@ -61,26 +64,34 @@ impl Default for SendView {
 impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
         self.accept_dropped_file(ui);
+        self.transition_from_connecting_to_connected();
         self.transition_from_connecting_to_sending(ui);
         self.transition_from_sending_to_complete();
 
         match self {
             SendView::Ready => self.show_file_selection_page(ui),
-            SendView::Connecting(ref promise, ref send_request)
-                if let Some((welcome, _)) = promise.ready() =>
-            {
-                self.show_transmit_code(ui, welcome, send_request.path());
-            }
             SendView::Connecting(..) => self.show_transmit_code_progress(ui),
+            SendView::Connected(ref welcome, ref send_request, _) => self.show_transmit_code(ui, welcome, send_request.path()),
             SendView::Sending(_, transit_info, progress) => show_transfer_progress(ui, progress, transit_info),
             SendView::Complete => self.show_transfer_completed_page(ui),
         }
     }
 
+    fn transition_from_connecting_to_connected(&mut self) {
+        take(self, |view| {
+            match view {
+                SendView::Connecting(connecting_promise, send_request) => match connecting_promise.try_take() {
+                    Ok((welcome, wormhole_promise)) => SendView::Connected(welcome, send_request, wormhole_promise),
+                    Err(connecting_promise) => SendView::Connecting(connecting_promise, send_request),
+                },
+                _ => view,
+            }
+        });
+    }
+
     fn transition_from_connecting_to_sending(&mut self, ui: &mut Ui) {
-        if let SendView::Connecting(ref mut promise, send_request) = self
-            && let Some((_, ref mut connect_promise)) = promise.ready_mut()
-            && let Some(wormhole) = connect_promise.ready_mut()
+        if let SendView::Connected(_, send_request, wormhole_promise) = self
+            && let Some(wormhole) = wormhole_promise.ready_mut()
         {
             let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
             let (transit_receiver, transit_updater) = svc::channel::<TransitInfo>();

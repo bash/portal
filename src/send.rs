@@ -41,25 +41,30 @@ impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
         self.accept_dropped_file(ui);
 
-        if let SendView::Connecting(ref mut promise, file_path) = self {
-            if let Some((_, ref mut connect_promise)) = promise.ready_mut() {
-                if let Some(wormhole) = connect_promise.ready_mut() {
-                    let (receiver, updater) = svc::channel_starting_with((0, 0));
-                    let promise = Promise::spawn_async(send_file(
-                        wormhole.take().unwrap(),
-                        file_path.clone(),
-                        updater,
-                        ui.ctx().clone(),
-                    ));
-                    *self = SendView::Sending(promise, receiver);
-                }
-            }
+        if let SendView::Connecting(ref mut promise, file_path) = self
+            && let Some((_, ref mut connect_promise)) = promise.ready_mut()
+            && let Some(wormhole) = connect_promise.ready_mut()
+        {
+            let (receiver, updater) = svc::channel_starting_with((0, 0));
+            let ctx = ui.ctx().clone();
+            let wormhole = wormhole.take().unwrap();
+            let file_path = file_path.clone();
+            let promise = Promise::spawn_async(async move {
+                send_file(
+                    wormhole,
+                    file_path,
+                    updater,
+                    ctx.clone(),
+                ).await;
+                ctx.request_repaint();
+            });
+            *self = SendView::Sending(promise, receiver);
         }
 
-        if let SendView::Sending(sending_promise, _) = self {
-            if let Some(_) = sending_promise.ready() {
-                *self = SendView::Complete;
-            }
+        if let SendView::Sending(sending_promise, _) = self
+            && let Some(_) = sending_promise.ready()
+        {
+            *self = SendView::Complete;
         }
 
         match self {

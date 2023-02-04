@@ -22,10 +22,10 @@ use take_mut::take;
 pub enum SendView {
     Ready,
     Connecting(
-        Promise<(WormholeWelcome, Promise<Option<Wormhole>>)>,
+        Promise<(WormholeWelcome, Promise<Wormhole>)>,
         SendRequest,
     ),
-    Connected(WormholeWelcome, SendRequest, Promise<Option<Wormhole>>),
+    Connected(WormholeWelcome, SendRequest, Promise<Wormhole>),
     Sending(
         Promise<()>,
         svc::Receiver<Option<TransitInfo>>,
@@ -65,7 +65,7 @@ impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
         self.accept_dropped_file(ui);
         self.transition_from_connecting_to_connected();
-        self.transition_from_connecting_to_sending(ui);
+        self.transition_from_connected_to_sending(ui);
         self.transition_from_sending_to_complete();
 
         match self {
@@ -89,30 +89,16 @@ impl SendView {
         });
     }
 
-    fn transition_from_connecting_to_sending(&mut self, ui: &mut Ui) {
-        if let SendView::Connected(_, send_request, wormhole_promise) = self
-            && let Some(wormhole) = wormhole_promise.ready_mut()
-        {
-            let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
-            let (transit_receiver, transit_updater) = svc::channel::<TransitInfo>();
-            let promise = match send_request {
-                SendRequest::File(file_path) => ui.ctx().spawn_async(send_file(
-                    wormhole.take().unwrap(),
-                    file_path.clone(),
-                    progress_updater,
-                    transit_updater,
-                    ui.ctx().clone(),
-                )),
-                SendRequest::Folder(folder_path) => ui.ctx().spawn_async(send_folder(
-                    wormhole.take().unwrap(),
-                    folder_path.clone(),
-                    progress_updater,
-                    transit_updater,
-                    ui.ctx().clone(),
-                )),
-            };
-            *self = SendView::Sending(promise, transit_receiver, progress_receiver);
-        }
+    fn transition_from_connected_to_sending(&mut self, ui: &mut Ui) {
+        take(self, |view| {
+            match view {
+                SendView::Connected(welcome, send_request, wormhole_promise) => match wormhole_promise.try_take() {
+                    Ok(wormhole) => send(ui, &send_request, wormhole),
+                    Err(wormhole_promise) => SendView::Connected(welcome, send_request, wormhole_promise),
+                }
+                _ => view,
+            }
+        });
     }
 
     fn transition_from_sending_to_complete(&mut self) {
@@ -268,12 +254,35 @@ fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String 
     format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
-async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Option<Wormhole>>) {
+async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Wormhole>) {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4)
         .await
         .unwrap();
-    let promise = ctx.spawn_async(async { Some(future.await.unwrap()) });
+    let promise = ctx.spawn_async(async { future.await.unwrap() });
     (welcome, promise)
+}
+
+// TODO: this function needs refactoring
+fn send(ui: &mut Ui, send_request: &SendRequest, wormhole: Wormhole) -> SendView {
+    let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
+    let (transit_receiver, transit_updater) = svc::channel::<TransitInfo>();
+    let promise = match send_request {
+        SendRequest::File(file_path) => ui.ctx().spawn_async(send_file(
+            wormhole,
+            file_path.clone(),
+            progress_updater,
+            transit_updater,
+            ui.ctx().clone(),
+        )),
+        SendRequest::Folder(folder_path) => ui.ctx().spawn_async(send_folder(
+            wormhole,
+            folder_path.clone(),
+            progress_updater,
+            transit_updater,
+            ui.ctx().clone(),
+        )),
+    };
+    SendView::Sending(promise, transit_receiver, progress_receiver)
 }
 
 async fn send_file(

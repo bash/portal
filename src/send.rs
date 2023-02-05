@@ -33,7 +33,7 @@ pub enum SendView {
     ),
     Sending(
         Promise<Result<(), SendError>>,
-        svc::Receiver<Option<TransitInfo>>,
+        Promise<TransitInfo>,
         svc::Receiver<Progress>,
     ),
     Error(SendError),
@@ -100,7 +100,7 @@ impl SendView {
             SendView::Connected(ref welcome, ref send_request, _) => {
                 self.show_transmit_code(ui, welcome, send_request.path())
             }
-            SendView::Sending(_, transit_info, progress) => {
+            SendView::Sending(_, ref transit_info, progress) => {
                 show_transfer_progress(ui, progress, transit_info)
             }
             SendView::Error(ref error) => self.show_error_page(ui, error.to_string()),
@@ -261,10 +261,10 @@ impl SendView {
 fn show_transfer_progress(
     ui: &mut Ui,
     progress: &mut svc::Receiver<Progress>,
-    transit_info: &mut svc::Receiver<Option<TransitInfo>>,
+    transit_info: &Promise<TransitInfo>,
 ) {
     let Progress { sent, total } = *progress.latest();
-    match transit_info.latest() {
+    match transit_info.ready() {
         Some(transit_info) => crate::page_with_content(
             ui,
             "Sending File",
@@ -315,31 +315,31 @@ async fn connect(
 // TODO: this function needs refactoring
 fn send(ui: &mut Ui, send_request: &SendRequest, wormhole: Wormhole) -> SendView {
     let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
-    let (transit_receiver, transit_updater) = svc::channel::<TransitInfo>();
+    let (transit_sender, transit_info) = Promise::<TransitInfo>::new();
     let promise = match send_request {
         SendRequest::File(file_path) => ui.ctx().spawn_async(send_file(
             wormhole,
             file_path.clone(),
             progress_updater,
-            transit_updater,
+            transit_sender,
             ui.ctx().clone(),
         )),
         SendRequest::Folder(folder_path) => ui.ctx().spawn_async(send_folder(
             wormhole,
             folder_path.clone(),
             progress_updater,
-            transit_updater,
+            transit_sender,
             ui.ctx().clone(),
         )),
     };
-    SendView::Sending(promise, transit_receiver, progress_receiver)
+    SendView::Sending(promise, transit_info, progress_receiver)
 }
 
 async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    transit_info_updater: svc::Updater<Option<TransitInfo>>,
+    transit_info_sender: poll_promise::Sender<TransitInfo>,
     ctx: Context,
 ) -> Result<(), SendError> {
     let mut file = File::open(&path).await?;
@@ -358,7 +358,7 @@ async fn send_file(
         {
             let ctx = ctx.clone();
             move |transit_info, _| {
-                _ = transit_info_updater.update(Some(transit_info));
+                _ = transit_info_sender.send(transit_info);
                 ctx.request_repaint();
             }
         },
@@ -376,7 +376,7 @@ async fn send_folder(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    transit_info_updater: svc::Updater<Option<TransitInfo>>,
+    transit_info_sender: poll_promise::Sender<TransitInfo>,
     ctx: Context,
 ) -> Result<(), SendError> {
     let relay_hint =
@@ -391,7 +391,7 @@ async fn send_folder(
         {
             let ctx = ctx.clone();
             move |transit_info, _| {
-                _ = transit_info_updater.update(Some(transit_info));
+                _ = transit_info_sender.send(transit_info);
                 ctx.request_repaint();
             }
         },

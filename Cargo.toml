@@ -11,6 +11,7 @@ async-std = "1.12.0"
 dirs = "4.0.0"
 eframe = { version = "0.20.1", features = ["dark-light", "persistence"] }
 magic-wormhole = "0.6.0"
+opener = "0.5.2"
 poll-promise = { version = "0.2.0", features = ["tokio"] }
 rfd = "0.11.0"
 single_value_channel = "1.2.2"

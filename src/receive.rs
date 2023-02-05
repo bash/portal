@@ -1,9 +1,9 @@
-use std::{future, ffi::OsString};
+use std::{ffi::OsString, future, path::PathBuf};
 
 use crate::{error::PortalError, update};
 use async_std::fs::File;
 use eframe::{
-    egui::{Button, TextBuffer, TextEdit, Ui, ProgressBar},
+    egui::{Button, ProgressBar, TextBuffer, TextEdit, Ui},
     epaint::Vec2,
 };
 use magic_wormhole::{
@@ -27,9 +27,13 @@ enum ReceiveState {
     Connecting(Promise<Result<ReceiveRequest, PortalError>>),
     Connected(ReceiveRequest),
     Rejecting(Promise<Result<(), PortalError>>),
-    Receiving(Promise<Result<(), PortalError>>, Promise<TransitInfo>, svc::Receiver<Progress>),
+    Receiving(
+        Promise<Result<PathBuf, PortalError>>,
+        Promise<TransitInfo>,
+        svc::Receiver<Progress>,
+    ),
     Error(PortalError),
-    Completed,
+    Completed(PathBuf),
 }
 
 #[derive(Default)]
@@ -62,7 +66,10 @@ impl ReceiveView {
                     "Connecting with peer",
                     "Preparing to Receive File",
                     "📥",
-                    |ui| { ui.spinner(); });
+                    |ui| {
+                        ui.spinner();
+                    },
+                );
             }
             ReceiveState::Error(error) => {
                 let error = error.to_string();
@@ -82,27 +89,22 @@ impl ReceiveView {
                 match transit_info.ready() {
                     Some(_transit_info) => {
                         // TODO: show transit info
-                        crate::page_with_content(
-                            ui,
-                            "Sending File",
-                            "TODO",
-                            "📥",
-                            |ui| {
-                                ui.add(ProgressBar::new((received as f64 / total as f64) as f32).animate(true));
-                            },
-                        )
-                    },
-                    None => {
-                        crate::page_with_content(
-                            ui,
-                            "Connected to Peer",
-                            format!("Preparing to receive file \"{}\"", "TODO"),
-                            "📥",
-                            |ui| {
-                                ui.spinner();
-                            },
-                        )
+                        crate::page_with_content(ui, "Sending File", "TODO", "📥", |ui| {
+                            ui.add(
+                                ProgressBar::new((received as f64 / total as f64) as f32)
+                                    .animate(true),
+                            );
+                        })
                     }
+                    None => crate::page_with_content(
+                        ui,
+                        "Connected to Peer",
+                        format!("Preparing to receive file \"{}\"", "TODO"),
+                        "📥",
+                        |ui| {
+                            ui.spinner();
+                        },
+                    ),
                 }
             }
             ReceiveState::Rejecting(_) => {
@@ -111,15 +113,27 @@ impl ReceiveView {
                     "Receive File",
                     "Rejecting File Transfer",
                     "📥",
-                    |ui| { ui.spinner(); });
+                    |ui| {
+                        ui.spinner();
+                    },
+                );
             }
-            ReceiveState::Completed => {
+            ReceiveState::Completed(downloaded_path) => {
+                let downloaded_path = downloaded_path.clone();
                 ui.horizontal(|ui| {
                     if ui.button("Back").clicked() {
                         self.state = ReceiveState::Initial;
                     }
                 });
                 ui.label("Completed");
+
+                if ui.button("Open File").clicked() {
+                    _ = opener::open(&downloaded_path);
+                }
+
+                if ui.button("Show in Folder").clicked() {
+                    _ = crate::utils::open_file_in_folder(&downloaded_path);
+                }
             }
         }
     }
@@ -150,7 +164,7 @@ impl ReceiveView {
         update! {
             &mut self.state,
             ReceiveState::Receiving(receiving_promise, transit_info, progress) => match receiving_promise.try_take() {
-                Ok(Ok(())) => ReceiveState::Completed,
+                Ok(Ok(path)) => ReceiveState::Completed(path),
                 Ok(Err(error)) => ReceiveState::Error(error),
                 Err(rejecting_promise) => ReceiveState::Receiving(rejecting_promise, transit_info, progress),
             }
@@ -215,17 +229,28 @@ async fn reject(receive_request: ReceiveRequest) -> Result<(), PortalError> {
     receive_request.reject().await.map_err(Into::into)
 }
 
-async fn accept(receive_request: ReceiveRequest, transit_info_sender: poll_promise::Sender<TransitInfo>, progress_updater: svc::Updater<Progress>) -> Result<(), PortalError> {
+async fn accept(
+    receive_request: ReceiveRequest,
+    transit_info_sender: poll_promise::Sender<TransitInfo>,
+    progress_updater: svc::Updater<Progress>,
+) -> Result<PathBuf, PortalError> {
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
 
     let filename = receive_request.filename.clone();
 
-    receive_request.accept(
-        |transit_info, _| { transit_info_sender.send(transit_info); },
-        move |received, total| { progress_updater.update(Progress { received, total }); },
-        &mut temp_file_async,
-        future::pending()).await?;
+    receive_request
+        .accept(
+            |transit_info, _| {
+                transit_info_sender.send(transit_info);
+            },
+            move |received, total| {
+                progress_updater.update(Progress { received, total });
+            },
+            &mut temp_file_async,
+            future::pending(),
+        )
+        .await?;
 
     // TODO: re-attempt to save with added extension if file already exists
     let mut file_stem = filename.file_stem().unwrap_or_default();
@@ -237,17 +262,18 @@ async fn accept(receive_request: ReceiveRequest, transit_info_sender: poll_promi
         extension = "bin".as_ref();
     }
 
-    // TODO: what to do if download dir is not there?
-    if let Some(mut download_dir) = dirs::download_dir() {
-        let mut filename = OsString::with_capacity(file_stem.len() + extension.len() + 1);
-        filename.push(file_stem);
-        filename.push(".");
-        filename.push(extension);
-        download_dir.push(filename);
-        temp_file.persist_noclobber(download_dir).map_err(|error| error.error)?;
-    }
+    let mut download_path = dirs::download_dir().expect("Unable to detect downloads directory");
 
-    Ok(())
+    let mut filename = OsString::with_capacity(file_stem.len() + extension.len() + 1);
+    filename.push(file_stem);
+    filename.push(".");
+    filename.push(extension);
+    download_path.push(filename);
+    temp_file
+        .persist_noclobber(&download_path)
+        .map_err(|error| error.error)?;
+
+    Ok(download_path)
 }
 
 async fn connect(code: Code) -> Result<ReceiveRequest, PortalError> {

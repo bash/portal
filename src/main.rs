@@ -11,6 +11,7 @@ use send::SendView;
 use view_switcher::{view_switcher, ViewSwitcher};
 
 mod egui_ext;
+mod error;
 mod receive;
 mod send;
 mod tab_button;
@@ -18,6 +19,7 @@ mod view_switcher;
 
 // TODO: show version somewhere in UI
 // TODO: cancellation support
+// TODO: distinguish primary and secondary buttons
 #[tokio::main]
 async fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).
@@ -64,7 +66,7 @@ impl ViewSwitcher for PortalApp {
     fn show_switcher(&self, view: &Self::View) -> bool {
         match view {
             View::Send => matches!(self.send_view, SendView::Ready),
-            View::Receive => true,
+            View::Receive => self.receive_view.show_switcher(),
         }
     }
 
@@ -108,4 +110,14 @@ pub fn page_with_content<'a>(
     page(ui, title, text, icon);
     ui.add_space(20.0);
     add_contents(ui);
+}
+
+#[macro_export]
+macro_rules! update {
+    ($target:expr, $pattern:pat => $match_arm:expr) => {
+        ::take_mut::take($target, |target| match target {
+            $pattern => $match_arm,
+            _ => target,
+        });
+    };
 }

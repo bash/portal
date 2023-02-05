@@ -1,4 +1,6 @@
 use crate::egui_ext::ContextExt;
+use crate::error::PortalError as SendError;
+use crate::update;
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
@@ -7,7 +9,7 @@ use eframe::{
 use magic_wormhole::{
     transfer::{self},
     transit::{self, Abilities, TransitInfo},
-    Wormhole, WormholeError, WormholeWelcome,
+    Wormhole, WormholeWelcome,
 };
 use poll_promise::Promise;
 use rfd::FileDialog;
@@ -16,9 +18,7 @@ use std::{
     ffi::OsStr,
     fmt, future,
     path::{Path, PathBuf},
-};
-use take_mut::take;
-use thiserror::Error;
+}; // TODO: rename usages in this file
 
 pub enum SendView {
     Ready,
@@ -39,14 +39,6 @@ pub enum SendView {
     ),
     Error(SendError),
     Complete(SendRequest),
-}
-
-#[derive(Error, Debug)]
-#[error(transparent)]
-pub enum SendError {
-    Wormhole(#[from] WormholeError),
-    WormholeTransfer(#[from] magic_wormhole::transfer::TransferError),
-    Io(#[from] std::io::Error),
 }
 
 #[derive(Default)]
@@ -74,15 +66,6 @@ impl Default for SendView {
     fn default() -> Self {
         SendView::Ready
     }
-}
-
-macro_rules! update {
-    ($target:expr, $pattern:pat => $match_arm:expr) => {
-        take($target, |target| match target {
-            $pattern => $match_arm,
-            _ => target,
-        });
-    };
 }
 
 impl SendView {

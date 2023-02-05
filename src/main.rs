@@ -17,6 +17,7 @@ mod tab_button;
 mod view_switcher;
 
 // TODO: show version somewhere in UI
+// TODO: cancellation support
 #[tokio::main]
 async fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).

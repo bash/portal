@@ -5,9 +5,9 @@ use eframe::{
     epaint::Vec2,
 };
 use magic_wormhole::{
-    transfer,
+    transfer::{self, TransferError},
     transit::{self, Abilities, TransitInfo},
-    Wormhole, WormholeWelcome,
+    Wormhole, WormholeError, WormholeWelcome,
 };
 use poll_promise::Promise;
 use rfd::FileDialog;
@@ -22,16 +22,57 @@ use take_mut::take;
 pub enum SendView {
     Ready,
     Connecting(
-        Promise<(WormholeWelcome, Promise<Wormhole>)>,
+        Promise<Result<(WormholeWelcome, Promise<Result<Wormhole, SendError>>), SendError>>,
         SendRequest,
     ),
-    Connected(WormholeWelcome, SendRequest, Promise<Wormhole>),
+    Connected(
+        WormholeWelcome,
+        SendRequest,
+        Promise<Result<Wormhole, SendError>>,
+    ),
     Sending(
-        Promise<()>,
+        Promise<Result<(), SendError>>,
         svc::Receiver<Option<TransitInfo>>,
         svc::Receiver<Progress>,
     ),
+    Error(SendError),
     Complete,
+}
+
+#[derive(Debug)]
+pub enum SendError {
+    Wormhole(WormholeError),
+    WormholeTransfer(magic_wormhole::transfer::TransferError),
+    Io(std::io::Error),
+}
+
+impl From<WormholeError> for SendError {
+    fn from(value: WormholeError) -> Self {
+        SendError::Wormhole(value)
+    }
+}
+
+impl From<magic_wormhole::transfer::TransferError> for SendError {
+    fn from(value: TransferError) -> Self {
+        SendError::WormholeTransfer(value)
+    }
+}
+
+impl From<std::io::Error> for SendError {
+    fn from(value: std::io::Error) -> Self {
+        SendError::Io(value)
+    }
+}
+
+impl fmt::Display for SendError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use SendError::*;
+        match self {
+            Wormhole(error) => write!(f, "{}", error),
+            WormholeTransfer(error) => write!(f, "{}", error),
+            Io(error) => write!(f, "{}", error),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -63,50 +104,71 @@ impl Default for SendView {
 
 impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
-        self.accept_dropped_file(ui);
         self.transition_from_connecting_to_connected();
         self.transition_from_connected_to_sending(ui);
         self.transition_from_sending_to_complete();
 
+        if let SendView::Ready | SendView::Complete = self {
+            self.accept_dropped_file(ui);
+        }
+
         match self {
             SendView::Ready => self.show_file_selection_page(ui),
             SendView::Connecting(..) => self.show_transmit_code_progress(ui),
-            SendView::Connected(ref welcome, ref send_request, _) => self.show_transmit_code(ui, welcome, send_request.path()),
-            SendView::Sending(_, transit_info, progress) => show_transfer_progress(ui, progress, transit_info),
+            SendView::Connected(ref welcome, ref send_request, _) => {
+                self.show_transmit_code(ui, welcome, send_request.path())
+            }
+            SendView::Sending(_, transit_info, progress) => {
+                show_transfer_progress(ui, progress, transit_info)
+            }
+            SendView::Error(ref error) => self.show_error_page(ui, error.to_string()),
             SendView::Complete => self.show_transfer_completed_page(ui),
         }
     }
 
     fn transition_from_connecting_to_connected(&mut self) {
-        take(self, |view| {
-            match view {
-                SendView::Connecting(connecting_promise, send_request) => match connecting_promise.try_take() {
-                    Ok((welcome, wormhole_promise)) => SendView::Connected(welcome, send_request, wormhole_promise),
-                    Err(connecting_promise) => SendView::Connecting(connecting_promise, send_request),
-                },
-                _ => view,
-            }
+        take(self, |view| match view {
+            SendView::Connecting(connecting_promise, send_request) => match connecting_promise
+                .try_take()
+            {
+                Ok(Ok((welcome, wormhole_promise))) => {
+                    SendView::Connected(welcome, send_request, wormhole_promise)
+                }
+                Ok(Err(error)) => SendView::Error(error),
+                Err(connecting_promise) => SendView::Connecting(connecting_promise, send_request),
+            },
+            _ => view,
         });
     }
 
     fn transition_from_connected_to_sending(&mut self, ui: &mut Ui) {
-        take(self, |view| {
-            match view {
-                SendView::Connected(welcome, send_request, wormhole_promise) => match wormhole_promise.try_take() {
-                    Ok(wormhole) => send(ui, &send_request, wormhole),
-                    Err(wormhole_promise) => SendView::Connected(welcome, send_request, wormhole_promise),
+        take(self, |view| match view {
+            SendView::Connected(welcome, send_request, wormhole_promise) => {
+                match wormhole_promise.try_take() {
+                    Ok(Ok(wormhole)) => send(ui, &send_request, wormhole),
+                    Ok(Err(error)) => SendView::Error(error),
+                    Err(wormhole_promise) => {
+                        SendView::Connected(welcome, send_request, wormhole_promise)
+                    }
                 }
-                _ => view,
             }
+            _ => view,
         });
     }
 
     fn transition_from_sending_to_complete(&mut self) {
-        if let SendView::Sending(sending_promise, _, _) = self
-            && let Some(_) = sending_promise.ready()
-        {
-            *self = SendView::Complete;
-        }
+        take(self, |view| match view {
+            SendView::Sending(sending_promise, transit_info, progress) => {
+                match sending_promise.try_take() {
+                    Ok(Ok(_)) => SendView::Complete,
+                    Ok(Err(error)) => SendView::Error(error),
+                    Err(sending_promise) => {
+                        SendView::Sending(sending_promise, transit_info, progress)
+                    }
+                }
+            }
+            _ => view,
+        });
     }
 
     fn show_file_selection_page(&mut self, ui: &mut Ui) {
@@ -171,6 +233,16 @@ impl SendView {
                 });
             }
         );
+    }
+
+    fn show_error_page(&mut self, ui: &mut Ui, error: String) {
+        ui.horizontal(|ui| {
+            if ui.button("Back").clicked() {
+                *self = SendView::Ready;
+            }
+        });
+
+        crate::page(ui, "File Transfer Failed", error, "❌");
     }
 
     fn show_transfer_completed_page(&mut self, ui: &mut Ui) {
@@ -254,12 +326,11 @@ fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String 
     format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
-async fn connect(ctx: Context) -> (WormholeWelcome, Promise<Wormhole>) {
-    let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4)
-        .await
-        .unwrap();
-    let promise = ctx.spawn_async(async { future.await.unwrap() });
-    (welcome, promise)
+async fn connect(
+    ctx: Context,
+) -> Result<(WormholeWelcome, Promise<Result<Wormhole, SendError>>), SendError> {
+    let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
+    Ok((welcome, ctx.spawn_async(async { Ok(future.await?) })))
 }
 
 // TODO: this function needs refactoring
@@ -291,9 +362,9 @@ async fn send_file(
     progress: svc::Updater<Progress>,
     transit_info_updater: svc::Updater<Option<TransitInfo>>,
     ctx: Context,
-) {
-    let mut file = File::open(&path).await.unwrap();
-    let metadata = file.metadata().await.unwrap();
+) -> Result<(), SendError> {
+    let mut file = File::open(&path).await?;
+    let metadata = file.metadata().await?;
     let file_size = metadata.len();
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
@@ -318,8 +389,8 @@ async fn send_file(
         },
         future::pending(),
     )
-    .await
-    .unwrap();
+    .await?;
+    Ok(())
 }
 
 async fn send_folder(
@@ -328,7 +399,7 @@ async fn send_folder(
     progress: svc::Updater<Progress>,
     transit_info_updater: svc::Updater<Option<TransitInfo>>,
     ctx: Context,
-) {
+) -> Result<(), SendError> {
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
             .unwrap();
@@ -351,6 +422,6 @@ async fn send_folder(
         },
         future::pending(),
     )
-    .await
-    .unwrap();
+    .await?;
+    Ok(())
 }

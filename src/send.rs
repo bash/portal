@@ -35,9 +35,10 @@ pub enum SendView {
         Promise<Result<(), SendError>>,
         Promise<TransitInfo>,
         svc::Receiver<Progress>,
+        SendRequest,
     ),
     Error(SendError),
-    Complete,
+    Complete(SendRequest),
 }
 
 #[derive(Error, Debug)]
@@ -90,7 +91,7 @@ impl SendView {
         self.transition_from_connected_to_sending(ui);
         self.transition_from_sending_to_complete();
 
-        if let SendView::Ready | SendView::Complete = self {
+        if let SendView::Ready | SendView::Complete(..) = self {
             self.accept_dropped_file(ui);
         }
 
@@ -100,11 +101,13 @@ impl SendView {
             SendView::Connected(ref welcome, ref send_request, _) => {
                 self.show_transmit_code(ui, welcome, send_request.path())
             }
-            SendView::Sending(_, ref transit_info, progress) => {
-                show_transfer_progress(ui, progress, transit_info)
+            SendView::Sending(_, ref transit_info, progress, send_request) => {
+                show_transfer_progress(ui, progress, transit_info, send_request)
             }
             SendView::Error(ref error) => self.show_error_page(ui, error.to_string()),
-            SendView::Complete => self.show_transfer_completed_page(ui),
+            SendView::Complete(ref send_request) => {
+                self.show_transfer_completed_page(ui, send_request.clone())
+            }
         }
     }
 
@@ -125,7 +128,7 @@ impl SendView {
             self,
             SendView::Connected(welcome, send_request, wormhole_promise) => {
                 match wormhole_promise.try_take() {
-                    Ok(Ok(wormhole)) => send(ui, &send_request, wormhole),
+                    Ok(Ok(wormhole)) => send(ui, send_request, wormhole),
                     Ok(Err(error)) => SendView::Error(error),
                     Err(wormhole_promise) => {
                         SendView::Connected(welcome, send_request, wormhole_promise)
@@ -138,12 +141,12 @@ impl SendView {
     fn transition_from_sending_to_complete(&mut self) {
         update! {
             self,
-            SendView::Sending(sending_promise, transit_info, progress) => {
+            SendView::Sending(sending_promise, transit_info, progress, send_request) => {
                 match sending_promise.try_take() {
-                    Ok(Ok(_)) => SendView::Complete,
+                    Ok(Ok(_)) => SendView::Complete(send_request),
                     Ok(Err(error)) => SendView::Error(error),
                     Err(sending_promise) => {
-                        SendView::Sending(sending_promise, transit_info, progress)
+                        SendView::Sending(sending_promise, transit_info, progress, send_request)
                     }
                 }
             }
@@ -224,7 +227,9 @@ impl SendView {
         crate::page(ui, "File Transfer Failed", error, "❌");
     }
 
-    fn show_transfer_completed_page(&mut self, ui: &mut Ui) {
+    fn show_transfer_completed_page(&mut self, ui: &mut Ui, send_request: SendRequest) {
+        let filename = send_request.path().file_name().unwrap();
+
         ui.horizontal(|ui| {
             if ui.button("Back").clicked() {
                 *self = SendView::Ready;
@@ -234,7 +239,7 @@ impl SendView {
         crate::page(
             ui,
             "File Transfer Successful",
-            format!("Successfully sent file \"{}\"", "FILENAME"),
+            format!("Successfully sent file \"{}\"", filename.to_string_lossy()),
             "✅",
         );
     }
@@ -262,13 +267,15 @@ fn show_transfer_progress(
     ui: &mut Ui,
     progress: &mut svc::Receiver<Progress>,
     transit_info: &Promise<TransitInfo>,
+    send_request: &SendRequest,
 ) {
     let Progress { sent, total } = *progress.latest();
+    let filename = send_request.path().file_name().unwrap();
     match transit_info.ready() {
         Some(transit_info) => crate::page_with_content(
             ui,
             "Sending File",
-            transit_info_message(transit_info, "FILENAME".as_ref()),
+            transit_info_message(transit_info, filename),
             "📤",
             |ui| {
                 ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
@@ -277,7 +284,7 @@ fn show_transfer_progress(
         None => crate::page_with_content(
             ui,
             "Connected to Peer",
-            "Preparing to send file",
+            format!("Preparing to send file \"{}\"", filename.to_string_lossy()),
             "📤",
             |ui| {
                 ui.spinner();
@@ -313,10 +320,10 @@ async fn connect(
 }
 
 // TODO: this function needs refactoring
-fn send(ui: &mut Ui, send_request: &SendRequest, wormhole: Wormhole) -> SendView {
+fn send(ui: &mut Ui, send_request: SendRequest, wormhole: Wormhole) -> SendView {
     let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
     let (transit_sender, transit_info) = Promise::<TransitInfo>::new();
-    let promise = match send_request {
+    let promise = match &send_request {
         SendRequest::File(file_path) => ui.ctx().spawn_async(send_file(
             wormhole,
             file_path.clone(),
@@ -332,7 +339,7 @@ fn send(ui: &mut Ui, send_request: &SendRequest, wormhole: Wormhole) -> SendView
             ui.ctx().clone(),
         )),
     };
-    SendView::Sending(promise, transit_info, progress_receiver)
+    SendView::Sending(promise, transit_info, progress_receiver, send_request)
 }
 
 async fn send_file(

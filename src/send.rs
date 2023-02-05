@@ -102,6 +102,15 @@ impl Default for SendView {
     }
 }
 
+macro_rules! update {
+    ($target:expr, $pattern:pat => $match_arm:expr) => {
+        take($target, |target| match target {
+            $pattern => $match_arm,
+            _ => target,
+        });
+    };
+}
+
 impl SendView {
     pub fn ui(&mut self, ui: &mut Ui) {
         self.transition_from_connecting_to_connected();
@@ -127,22 +136,20 @@ impl SendView {
     }
 
     fn transition_from_connecting_to_connected(&mut self) {
-        take(self, |view| match view {
-            SendView::Connecting(connecting_promise, send_request) => match connecting_promise
-                .try_take()
+        update! {
+            self,
+            SendView::Connecting(connecting_promise, send_request) => match connecting_promise.try_take()
             {
-                Ok(Ok((welcome, wormhole_promise))) => {
-                    SendView::Connected(welcome, send_request, wormhole_promise)
-                }
+                Ok(Ok((welcome, wormhole_promise))) => SendView::Connected(welcome, send_request, wormhole_promise),
                 Ok(Err(error)) => SendView::Error(error),
                 Err(connecting_promise) => SendView::Connecting(connecting_promise, send_request),
-            },
-            _ => view,
-        });
+            }
+        }
     }
 
     fn transition_from_connected_to_sending(&mut self, ui: &mut Ui) {
-        take(self, |view| match view {
+        update! {
+            self,
             SendView::Connected(welcome, send_request, wormhole_promise) => {
                 match wormhole_promise.try_take() {
                     Ok(Ok(wormhole)) => send(ui, &send_request, wormhole),
@@ -152,12 +159,12 @@ impl SendView {
                     }
                 }
             }
-            _ => view,
-        });
+        }
     }
 
     fn transition_from_sending_to_complete(&mut self) {
-        take(self, |view| match view {
+        update! {
+            self,
             SendView::Sending(sending_promise, transit_info, progress) => {
                 match sending_promise.try_take() {
                     Ok(Ok(_)) => SendView::Complete,
@@ -167,8 +174,7 @@ impl SendView {
                     }
                 }
             }
-            _ => view,
-        });
+        }
     }
 
     fn show_file_selection_page(&mut self, ui: &mut Ui) {

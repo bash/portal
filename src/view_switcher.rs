@@ -17,7 +17,9 @@ where
     S: ViewSwitcher<View = V>,
     V: PartialEq,
 {
-    let active_view_index = ui.memory().data.get_persisted::<usize>(id).unwrap_or(0);
+    let active_view_index = ui
+        .memory_mut(|memory| memory.data.get_persisted::<usize>(id))
+        .unwrap_or(0);
 
     if switcher.show_switcher(&views[active_view_index]) {
         ui.horizontal(|ui| {
@@ -25,7 +27,7 @@ where
                 let is_active = active_view_index == index;
                 let button = TabButton::new(switcher.label(view)).selected(is_active);
                 if ui.add(button).clicked() {
-                    ui.memory().data.insert_persisted(id, index);
+                    ui.memory_mut(|memory| memory.data.insert_persisted(id, index));
                 }
             }
         });

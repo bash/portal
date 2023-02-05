@@ -168,7 +168,7 @@ impl SendView {
 
         let select_file_button = Button::new("Select File").min_size(min_button_size);
         if ui.add(select_file_button).clicked()
-            || ui.input_mut().consume_key(Modifiers::COMMAND, Key::O)
+            || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::O))
         {
             if let Some(file_path) = FileDialog::new().pick_file() {
                 self.connect(ui, SendRequest::File(file_path));
@@ -210,7 +210,7 @@ impl SendView {
                 ui.horizontal(|ui| {
                     ui.label(&welcome.code.0);
                     if ui.button("📋").on_hover_text("Click to copy").clicked() {
-                        ui.output().copied_text = welcome.code.0.clone();
+                        ui.output_mut(|output| output.copied_text = welcome.code.0.clone());
                     }
                 });
             }
@@ -247,11 +247,7 @@ impl SendView {
     fn accept_dropped_file(&mut self, ui: &mut Ui) {
         let file_path = ui
             .ctx()
-            .input()
-            .raw
-            .dropped_files
-            .iter()
-            .find_map(|f| f.path.clone());
+            .input(|input| input.raw.dropped_files.iter().find_map(|f| f.path.clone()));
         if let Some(file_path) = file_path {
             self.connect(ui, SendRequest::File(file_path));
         }

@@ -5,7 +5,7 @@ use eframe::{
     epaint::Vec2,
 };
 use magic_wormhole::{
-    transfer::{self, TransferError},
+    transfer::{self},
     transit::{self, Abilities, TransitInfo},
     Wormhole, WormholeError, WormholeWelcome,
 };
@@ -18,6 +18,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use take_mut::take;
+use thiserror::Error;
 
 pub enum SendView {
     Ready,
@@ -39,40 +40,12 @@ pub enum SendView {
     Complete,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[error(transparent)]
 pub enum SendError {
-    Wormhole(WormholeError),
-    WormholeTransfer(magic_wormhole::transfer::TransferError),
-    Io(std::io::Error),
-}
-
-impl From<WormholeError> for SendError {
-    fn from(value: WormholeError) -> Self {
-        SendError::Wormhole(value)
-    }
-}
-
-impl From<magic_wormhole::transfer::TransferError> for SendError {
-    fn from(value: TransferError) -> Self {
-        SendError::WormholeTransfer(value)
-    }
-}
-
-impl From<std::io::Error> for SendError {
-    fn from(value: std::io::Error) -> Self {
-        SendError::Io(value)
-    }
-}
-
-impl fmt::Display for SendError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use SendError::*;
-        match self {
-            Wormhole(error) => write!(f, "{}", error),
-            WormholeTransfer(error) => write!(f, "{}", error),
-            Io(error) => write!(f, "{}", error),
-        }
-    }
+    Wormhole(#[from] WormholeError),
+    WormholeTransfer(#[from] magic_wormhole::transfer::TransferError),
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Default)]

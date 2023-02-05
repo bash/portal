@@ -2533,6 +2533,7 @@ dependencies = [
  "rfd",
  "single_value_channel",
  "take_mut",
+ "thiserror",
  "tokio",
  "tracing-subscriber",
 ]

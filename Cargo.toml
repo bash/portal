@@ -14,5 +14,6 @@ poll-promise = { version = "0.2.0", features = ["tokio"] }
 rfd = "0.11.0"
 single_value_channel = "1.2.2"
 take_mut = "0.2.2"
+thiserror = "1.0.38"
 tokio = { version = "1.25.0", features = ["rt", "macros"] }
 tracing-subscriber = "0.3"

@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(if_let_guard)]
 #![feature(let_chains)]
+#![feature(concat_idents)]
 
 use eframe::{
     egui::{self, Layout, RichText, Ui, WidgetText},
@@ -17,6 +18,7 @@ mod send;
 mod tab_button;
 mod utils;
 mod view_switcher;
+mod macros;
 
 // TODO: show version somewhere in UI
 // TODO: cancellation support
@@ -66,7 +68,7 @@ impl ViewSwitcher for PortalApp {
 
     fn show_switcher(&self, view: &Self::View) -> bool {
         match view {
-            View::Send => matches!(self.send_view, SendView::Ready),
+            View::Send => matches!(self.send_view, SendView::Ready(..)),
             View::Receive => self.receive_view.show_switcher(),
         }
     }

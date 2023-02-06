@@ -3,7 +3,10 @@ use std::{io, path::Path};
 
 #[cfg(target_os = "windows")]
 pub fn open_file_in_folder(path: impl AsRef<Path>) -> Result<(), io::Error> {
-    Command::new("explorer.exe").arg("/select,").arg(path.as_ref()).output()?;
+    Command::new("explorer.exe")
+        .arg("/select,")
+        .arg(path.as_ref())
+        .output()?;
     Ok(())
 }
 

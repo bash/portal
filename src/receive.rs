@@ -1,4 +1,8 @@
-use std::{ffi::OsString, future::{self, Future}, path::PathBuf};
+use std::{
+    ffi::OsString,
+    future::{self},
+    path::PathBuf,
+};
 
 use crate::{error::PortalError, update};
 use async_std::fs::File;
@@ -6,6 +10,7 @@ use eframe::{
     egui::{Button, ProgressBar, TextBuffer, TextEdit, Ui},
     epaint::Vec2,
 };
+use futures::channel::oneshot;
 use magic_wormhole::{
     transfer::{self, ReceiveRequest},
     transit::{self, Abilities, TransitInfo},
@@ -13,7 +18,7 @@ use magic_wormhole::{
 };
 use poll_promise::Promise;
 use single_value_channel as svc;
-use futures::channel::oneshot;
+use crate::states;
 
 use crate::egui_ext::ContextExt;
 
@@ -21,21 +26,6 @@ use crate::egui_ext::ContextExt;
 pub struct ReceiveView {
     code: String,
     state: ReceiveState,
-}
-
-enum ReceiveState {
-    Initial,
-    Connecting(Promise<Result<ReceiveRequest, PortalError>>),
-    Connected(ReceiveRequest),
-    Rejecting(Promise<Result<(), PortalError>>),
-    Receiving(
-        Promise<Result<PathBuf, PortalError>>,
-        Promise<TransitInfo>,
-        svc::Receiver<Progress>,
-        Option<oneshot::Sender<()>>,
-    ),
-    Error(PortalError),
-    Completed(PathBuf),
 }
 
 #[derive(Default)]
@@ -46,22 +36,63 @@ struct Progress {
 
 impl Default for ReceiveState {
     fn default() -> Self {
-        ReceiveState::Initial
+        ReceiveState::Initial()
     }
+}
+
+states! {
+    enum ReceiveState;
+
+    state Initial() { }
+
+    state Connecting() {
+        execute(code: Code) -> Result<ReceiveRequest, PortalError> { connect(code).await }
+        next(_ui) {
+            Ok(receive_request) => Connected(receive_request),
+            Err(error) => Error(error),
+        }
+    }
+
+    state Connected(request: ReceiveRequest) { }
+
+    state Rejecting() {
+        execute(request: ReceiveRequest) -> Result<(), PortalError> { reject(request).await }
+        next(_ui) {
+            Ok(()) => Initial(),
+            Err(error) => Error(error),
+        }
+    }
+
+    state Receiving(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, cancel: Option<oneshot::Sender<()>>) {
+        execute(
+            request: ReceiveRequest,
+            transit_info_sender: poll_promise::Sender<TransitInfo>,
+            progress_updater: svc::Updater<Progress>,
+            cancel_receiver: oneshot::Receiver<()>) -> Result<PathBuf, PortalError>
+        {
+            accept(request, transit_info_sender, progress_updater, cancel_receiver).await
+        }
+        next(_ui) {
+            Ok(path) => Completed(path),
+            Err(error) => Error(error),
+        }
+    }
+
+    state Error(error: PortalError) { }
+
+    state Completed(path: PathBuf) { }
 }
 
 impl ReceiveView {
     pub fn show_switcher(&self) -> bool {
-        matches!(self.state, ReceiveState::Initial)
+        matches!(self.state, ReceiveState::Initial())
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        self.transition_from_connecting_to_connected();
-        self.transition_from_rejecting_to_initial();
-        self.transition_from_receiving_to_completed();
+        self.state.next(ui);
 
         match &mut self.state {
-            ReceiveState::Initial => self.show_receive_file_page(ui),
+            ReceiveState::Initial() => self.show_receive_file_page(ui),
             ReceiveState::Connecting(_) => {
                 crate::page_with_content(
                     ui,
@@ -77,7 +108,7 @@ impl ReceiveView {
                 let error = error.to_string();
                 ui.horizontal(|ui| {
                     if ui.button("Back").clicked() {
-                        self.state = ReceiveState::Initial;
+                        self.state = ReceiveState::Initial();
                     }
                 });
 
@@ -129,7 +160,7 @@ impl ReceiveView {
                 let downloaded_path = downloaded_path.clone();
                 ui.horizontal(|ui| {
                     if ui.button("Back").clicked() {
-                        self.state = ReceiveState::Initial;
+                        self.state = ReceiveState::Initial();
                     }
                 });
                 ui.label("Completed");
@@ -141,39 +172,6 @@ impl ReceiveView {
                 if ui.button("Show in Folder").clicked() {
                     _ = crate::utils::open_file_in_folder(&downloaded_path);
                 }
-            }
-        }
-    }
-
-    fn transition_from_connecting_to_connected(&mut self) {
-        update! {
-            &mut self.state,
-            ReceiveState::Connecting(connecting_promise) => match connecting_promise.try_take() {
-                Ok(Ok(receive_request)) => ReceiveState::Connected(receive_request),
-                Ok(Err(error)) => ReceiveState::Error(error),
-                Err(connecting_promise) => ReceiveState::Connecting(connecting_promise),
-            }
-        }
-    }
-
-    fn transition_from_rejecting_to_initial(&mut self) {
-        update! {
-            &mut self.state,
-            ReceiveState::Rejecting(rejecting_promise) => match rejecting_promise.try_take() {
-                Ok(Ok(())) => ReceiveState::Initial,
-                Ok(Err(error)) => ReceiveState::Error(error),
-                Err(rejecting_promise) => ReceiveState::Rejecting(rejecting_promise),
-            }
-        }
-    }
-
-    fn transition_from_receiving_to_completed(&mut self) {
-        update! {
-            &mut self.state,
-            ReceiveState::Receiving(receiving_promise, transit_info, progress, cancel) => match receiving_promise.try_take() {
-                Ok(Ok(path)) => ReceiveState::Completed(path),
-                Ok(Err(error)) => ReceiveState::Error(error),
-                Err(rejecting_promise) => ReceiveState::Receiving(rejecting_promise, transit_info, progress, cancel),
             }
         }
     }
@@ -198,8 +196,7 @@ impl ReceiveView {
                         .add(Button::new("Receive File").min_size(min_button_size))
                         .clicked()
                     {
-                        let promise = ui.ctx().spawn_async(connect(Code(self.code.take())));
-                        self.state = ReceiveState::Connecting(promise);
+                        self.state = ReceiveState::new_connecting(ui, Code(self.code.take()));
                     }
                 });
             },
@@ -211,7 +208,7 @@ impl ReceiveView {
             if ui.button("Reject").clicked() {
                 update! {
                     &mut self.state,
-                    ReceiveState::Connected(receive_request) => ReceiveState::Rejecting(ui.ctx().spawn_async(reject(receive_request)))
+                    ReceiveState::Connected(receive_request) => ReceiveState::new_rejecting(ui, receive_request)
                 }
             }
 
@@ -223,8 +220,12 @@ impl ReceiveView {
                 let (cancel_sender, cancel_receiver) = oneshot::channel();
                 update! {
                     &mut self.state,
-                    ReceiveState::Connected(receive_request) => ReceiveState::Receiving(
-                        ui.ctx().spawn_async(accept(receive_request, transit_sender, progress_updater)),
+                    ReceiveState::Connected(receive_request) => ReceiveState::new_receiving(
+                        ui,
+                        receive_request,
+                        transit_sender,
+                        progress_updater,
+                        cancel_receiver,
                         transit_promise,
                         progress,
                         Some(cancel_sender))

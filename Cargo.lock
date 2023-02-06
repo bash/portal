@@ -2493,6 +2493,7 @@ dependencies = [
  "futures",
  "magic-wormhole",
  "opener",
+ "paste",
  "poll-promise",
  "rfd",
  "single_value_channel",

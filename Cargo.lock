@@ -2490,6 +2490,7 @@ dependencies = [
  "async-std",
  "dirs",
  "eframe",
+ "futures",
  "magic-wormhole",
  "opener",
  "poll-promise",

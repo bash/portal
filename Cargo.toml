@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 async-std = "1.12.0"
 dirs = "4.0.0"
 eframe = { version = "0.20.1", features = ["dark-light", "persistence"] }
+futures = "0.3.26"
 magic-wormhole = "0.6.0"
 opener = "0.5.2"
 poll-promise = { version = "0.2.0", features = ["tokio"] }

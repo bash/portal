@@ -1,4 +1,4 @@
-use std::{ffi::OsString, future, path::PathBuf};
+use std::{ffi::OsString, future::{self, Future}, path::PathBuf};
 
 use crate::{error::PortalError, update};
 use async_std::fs::File;
@@ -13,6 +13,7 @@ use magic_wormhole::{
 };
 use poll_promise::Promise;
 use single_value_channel as svc;
+use futures::channel::oneshot;
 
 use crate::egui_ext::ContextExt;
 
@@ -31,6 +32,7 @@ enum ReceiveState {
         Promise<Result<PathBuf, PortalError>>,
         Promise<TransitInfo>,
         svc::Receiver<Progress>,
+        Option<oneshot::Sender<()>>,
     ),
     Error(PortalError),
     Completed(PathBuf),
@@ -84,8 +86,13 @@ impl ReceiveView {
             ReceiveState::Connected(_) => {
                 self.show_connected_page(ui);
             }
-            ReceiveState::Receiving(_, ref transit_info, ref mut progress) => {
+            ReceiveState::Receiving(_, ref transit_info, ref mut progress, ref mut cancel) => {
                 let Progress { received, total } = *progress.latest();
+
+                if ui.horizontal(|ui| ui.button("Cancel").clicked()).inner {
+                    cancel.take().map(|cancel| cancel.send(()));
+                }
+
                 match transit_info.ready() {
                     Some(_transit_info) => {
                         // TODO: show transit info
@@ -163,10 +170,10 @@ impl ReceiveView {
     fn transition_from_receiving_to_completed(&mut self) {
         update! {
             &mut self.state,
-            ReceiveState::Receiving(receiving_promise, transit_info, progress) => match receiving_promise.try_take() {
+            ReceiveState::Receiving(receiving_promise, transit_info, progress, cancel) => match receiving_promise.try_take() {
                 Ok(Ok(path)) => ReceiveState::Completed(path),
                 Ok(Err(error)) => ReceiveState::Error(error),
-                Err(rejecting_promise) => ReceiveState::Receiving(rejecting_promise, transit_info, progress),
+                Err(rejecting_promise) => ReceiveState::Receiving(rejecting_promise, transit_info, progress, cancel),
             }
         }
     }
@@ -213,12 +220,14 @@ impl ReceiveView {
             if ui.button("Accept").clicked() {
                 let (transit_sender, transit_promise) = Promise::new();
                 let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
+                let (cancel_sender, cancel_receiver) = oneshot::channel();
                 update! {
                     &mut self.state,
                     ReceiveState::Connected(receive_request) => ReceiveState::Receiving(
                         ui.ctx().spawn_async(accept(receive_request, transit_sender, progress_updater)),
                         transit_promise,
-                        progress)
+                        progress,
+                        Some(cancel_sender))
                 }
             }
         });
@@ -233,6 +242,7 @@ async fn accept(
     receive_request: ReceiveRequest,
     transit_info_sender: poll_promise::Sender<TransitInfo>,
     progress_updater: svc::Updater<Progress>,
+    cancel: oneshot::Receiver<()>,
 ) -> Result<PathBuf, PortalError> {
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
@@ -248,7 +258,7 @@ async fn accept(
                 progress_updater.update(Progress { received, total });
             },
             &mut temp_file_async,
-            future::pending(),
+            async { _ = cancel.await },
         )
         .await?;
 

@@ -256,7 +256,7 @@ async fn accept(
                 transit_info_sender.send(transit_info);
             },
             move |received, total| {
-                progress_updater.update(Progress { received, total });
+                _ = progress_updater.update(Progress { received, total });
             },
             &mut temp_file_async,
             async { _ = cancel.await },

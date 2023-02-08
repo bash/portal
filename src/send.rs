@@ -42,7 +42,6 @@ states! {
         }
         next(ui) {
             Ok(wormhole) => {
-                dbg!("starting to send...");
                 let (future, transit_info, progress) = send(ui.ctx().clone(), &request, wormhole);
                 Self::new_sending(ui, future, transit_info, progress, request)
             },
@@ -52,10 +51,7 @@ states! {
 
     state Sending(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, request: SendRequest) {
         execute(future: impl Future<Output = Result<(), SendError>> + Send + 'static) -> Result<(), SendError> {
-            {
-                dbg!("awaiting send future");
-                future.await
-            }
+            future.await
         }
         next(_ui) {
             Ok(_) => Complete(request),
@@ -275,13 +271,12 @@ async fn connect() -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhol
 }
 
 // TODO: this function needs refactoring
-fn send(ctx: Context, send_request: &SendRequest, wormhole: Wormhole) -> (impl Future<Output = Result<(), SendError>> + Send, Promise<TransitInfo>, svc::Receiver<Progress>) {
+fn send(ctx: Context, send_request: &SendRequest, wormhole: Wormhole) -> (BoxFuture<'static, Result<(), SendError>>, Promise<TransitInfo>, svc::Receiver<Progress>) {
     let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
     let (transit_sender, transit_info) = Promise::<TransitInfo>::new();
     let future = {
         let send_request = send_request.clone();
         async {
-            dbg!("matching on send_request");
             match send_request {
                 SendRequest::File(file_path) => send_file(
                     wormhole,
@@ -300,7 +295,7 @@ fn send(ctx: Context, send_request: &SendRequest, wormhole: Wormhole) -> (impl F
             }
         }
     };
-    (future, transit_info, progress_receiver)
+    (Box::pin(future), transit_info, progress_receiver)
 }
 
 async fn send_file(
@@ -316,7 +311,6 @@ async fn send_file(
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
             .unwrap();
-    dbg!("before transfer::send_file");
     transfer::send_file(
         wormhole,
         vec![relay_hint],

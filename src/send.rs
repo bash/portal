@@ -1,5 +1,5 @@
 use crate::egui_ext::ContextExt;
-use crate::error::PortalError as SendError;
+use crate::error::PortalError;
 use crate::states;
 use async_std::fs::File;
 use eframe::{
@@ -19,7 +19,7 @@ use std::{
     ffi::OsStr,
     fmt, future,
     path::{Path, PathBuf},
-}; // TODO: rename usages in this file
+};
 
 states! {
     pub enum SendView;
@@ -27,7 +27,7 @@ states! {
     state Ready() { }
 
     state Connecting(request: SendRequest) {
-        execute() -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, SendError>>), SendError> {
+        execute() -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, PortalError>>), PortalError> {
             connect().await
         }
         next(ui) {
@@ -37,7 +37,7 @@ states! {
     }
 
     state Connected(welcome: WormholeWelcome, request: SendRequest) {
-        execute(wormhole: BoxFuture<'static, Result<Wormhole, SendError>>) -> Result<Wormhole, SendError> {
+        execute(wormhole: BoxFuture<'static, Result<Wormhole, PortalError>>) -> Result<Wormhole, PortalError> {
             wormhole.await
         }
         next(ui) {
@@ -50,7 +50,7 @@ states! {
     }
 
     state Sending(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, request: SendRequest) {
-        execute(future: impl Future<Output = Result<(), SendError>> + Send + 'static) -> Result<(), SendError> {
+        execute(future: impl Future<Output = Result<(), PortalError>> + Send + 'static) -> Result<(), PortalError> {
             future.await
         }
         next(_ui) {
@@ -59,7 +59,7 @@ states! {
         }
     }
 
-    state Error(error: SendError) { }
+    state Error(error: PortalError) { }
 
     state Complete(request: SendRequest) { }
 }
@@ -268,9 +268,9 @@ fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String 
 async fn connect() -> Result<
     (
         WormholeWelcome,
-        BoxFuture<'static, Result<Wormhole, SendError>>,
+        BoxFuture<'static, Result<Wormhole, PortalError>>,
     ),
-    SendError,
+    PortalError,
 > {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
     Ok((welcome, Box::pin(async { Ok(future.await?) })))
@@ -282,7 +282,7 @@ fn send(
     send_request: &SendRequest,
     wormhole: Wormhole,
 ) -> (
-    BoxFuture<'static, Result<(), SendError>>,
+    BoxFuture<'static, Result<(), PortalError>>,
     Promise<TransitInfo>,
     svc::Receiver<Progress>,
 ) {
@@ -324,7 +324,7 @@ async fn send_file(
     progress: svc::Updater<Progress>,
     transit_info_sender: poll_promise::Sender<TransitInfo>,
     ctx: Context,
-) -> Result<(), SendError> {
+) -> Result<(), PortalError> {
     let mut file = File::open(&path).await?;
     let metadata = file.metadata().await?;
     let file_size = metadata.len();
@@ -362,7 +362,7 @@ async fn send_folder(
     progress: svc::Updater<Progress>,
     transit_info_sender: poll_promise::Sender<TransitInfo>,
     ctx: Context,
-) -> Result<(), SendError> {
+) -> Result<(), PortalError> {
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
             .unwrap();

@@ -4,7 +4,6 @@ use std::{
     path::PathBuf,
 };
 
-use crate::states;
 use crate::{error::PortalError, update};
 use async_std::fs::File;
 use eframe::{
@@ -18,6 +17,7 @@ use magic_wormhole::{
     Code, Wormhole,
 };
 use poll_promise::Promise;
+use portal_proc_macro::states;
 use single_value_channel as svc;
 
 use crate::egui_ext::ContextExt;
@@ -43,21 +43,21 @@ impl Default for ReceiveState {
 states! {
     enum ReceiveState;
 
-    state Initial() { }
+    state Initial();
 
     state Connecting() {
         execute(code: Code) -> Result<ReceiveRequest, PortalError> { connect(code).await }
-        next(_ui) {
+        next {
             Ok(receive_request) => Connected(receive_request),
             Err(error) => Error(error),
         }
     }
 
-    state Connected(request: ReceiveRequest) { }
+    state Connected(request: ReceiveRequest);
 
     state Rejecting() {
         execute(request: ReceiveRequest) -> Result<(), PortalError> { reject(request).await }
-        next(_ui) {
+        next {
             Ok(()) => Initial(),
             Err(error) => Error(error),
         }
@@ -72,15 +72,15 @@ states! {
         {
             accept(request, transit_info_sender, progress_updater, cancel_receiver).await
         }
-        next(_ui) {
+        next {
             Ok(path) => Completed(path),
             Err(error) => Error(error),
         }
     }
 
-    state Error(error: PortalError) { }
+    state Error(error: PortalError);
 
-    state Completed(path: PathBuf) { }
+    state Completed(path: PathBuf);
 }
 
 impl ReceiveView {

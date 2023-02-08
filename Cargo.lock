@@ -2490,11 +2490,12 @@ dependencies = [
  "async-std",
  "dirs",
  "eframe",
+ "egui",
  "futures",
  "magic-wormhole",
  "opener",
- "paste",
  "poll-promise",
+ "portal-proc-macro",
  "rfd",
  "single_value_channel",
  "take_mut",
@@ -2502,6 +2503,16 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "portal-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

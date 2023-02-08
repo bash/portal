@@ -1,6 +1,5 @@
 use crate::egui_ext::ContextExt;
 use crate::error::PortalError;
-use crate::states;
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
@@ -13,6 +12,7 @@ use magic_wormhole::{
     Wormhole, WormholeWelcome,
 };
 use poll_promise::Promise;
+use portal_proc_macro::states;
 use rfd::FileDialog;
 use single_value_channel as svc;
 use std::{
@@ -24,13 +24,13 @@ use std::{
 states! {
     pub enum SendView;
 
-    state Ready() { }
+    state Ready();
 
     state Connecting(request: SendRequest) {
         execute() -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, PortalError>>), PortalError> {
             connect().await
         }
-        next(ui) {
+        next {
             Ok((welcome, wormhole)) => Self::new_connected(ui, wormhole, welcome, request),
             Err(error) => Error(error),
         }
@@ -40,7 +40,7 @@ states! {
         execute(wormhole: BoxFuture<'static, Result<Wormhole, PortalError>>) -> Result<Wormhole, PortalError> {
             wormhole.await
         }
-        next(ui) {
+        next {
             Ok(wormhole) => {
                 let (future, transit_info, progress) = send(ui.ctx().clone(), &request, wormhole);
                 Self::new_sending(ui, future, transit_info, progress, request)
@@ -53,15 +53,15 @@ states! {
         execute(future: impl Future<Output = Result<(), PortalError>> + Send + 'static) -> Result<(), PortalError> {
             future.await
         }
-        next(_ui) {
+        next {
             Ok(_) => Complete(request),
             Err(error) => Error(error),
         }
     }
 
-    state Error(error: PortalError) { }
+    state Error(error: PortalError);
 
-    state Complete(request: SendRequest) { }
+    state Complete(request: SendRequest);
 }
 
 #[derive(Default)]
@@ -70,7 +70,7 @@ pub struct Progress {
     total: u64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SendRequest {
     File(PathBuf),
     Folder(PathBuf),

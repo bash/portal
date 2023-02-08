@@ -1,11 +1,12 @@
 use crate::egui_ext::ContextExt;
 use crate::error::PortalError as SendError;
+use crate::states;
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
     epaint::Vec2,
 };
-use futures::{Future, future::BoxFuture};
+use futures::{future::BoxFuture, Future};
 use magic_wormhole::{
     transfer::{self},
     transit::{self, Abilities, TransitInfo},
@@ -19,7 +20,6 @@ use std::{
     fmt, future,
     path::{Path, PathBuf},
 }; // TODO: rename usages in this file
-use crate::states;
 
 states! {
     pub enum SendView;
@@ -265,33 +265,53 @@ fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String 
     format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
-async fn connect() -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, SendError>>), SendError> {
+async fn connect() -> Result<
+    (
+        WormholeWelcome,
+        BoxFuture<'static, Result<Wormhole, SendError>>,
+    ),
+    SendError,
+> {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
     Ok((welcome, Box::pin(async { Ok(future.await?) })))
 }
 
 // TODO: this function needs refactoring
-fn send(ctx: Context, send_request: &SendRequest, wormhole: Wormhole) -> (BoxFuture<'static, Result<(), SendError>>, Promise<TransitInfo>, svc::Receiver<Progress>) {
+fn send(
+    ctx: Context,
+    send_request: &SendRequest,
+    wormhole: Wormhole,
+) -> (
+    BoxFuture<'static, Result<(), SendError>>,
+    Promise<TransitInfo>,
+    svc::Receiver<Progress>,
+) {
     let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
     let (transit_sender, transit_info) = Promise::<TransitInfo>::new();
     let future = {
         let send_request = send_request.clone();
         async {
             match send_request {
-                SendRequest::File(file_path) => send_file(
-                    wormhole,
-                    file_path.clone(),
-                    progress_updater,
-                    transit_sender,
-                    ctx,
-                ).await,
-                SendRequest::Folder(folder_path) => send_folder(
-                    wormhole,
-                    folder_path.clone(),
-                    progress_updater,
-                    transit_sender,
-                    ctx,
-                ).await,
+                SendRequest::File(file_path) => {
+                    send_file(
+                        wormhole,
+                        file_path.clone(),
+                        progress_updater,
+                        transit_sender,
+                        ctx,
+                    )
+                    .await
+                }
+                SendRequest::Folder(folder_path) => {
+                    send_folder(
+                        wormhole,
+                        folder_path.clone(),
+                        progress_updater,
+                        transit_sender,
+                        ctx,
+                    )
+                    .await
+                }
             }
         }
     };

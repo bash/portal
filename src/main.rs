@@ -13,12 +13,12 @@ use view_switcher::{view_switcher, ViewSwitcher};
 
 mod egui_ext;
 mod error;
+mod macros;
 mod receive;
 mod send;
 mod tab_button;
 mod utils;
 mod view_switcher;
-mod macros;
 
 // TODO: show version somewhere in UI
 // TODO: cancellation support

@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
 };
 
+use crate::states;
 use crate::{error::PortalError, update};
 use async_std::fs::File;
 use eframe::{
@@ -18,7 +19,6 @@ use magic_wormhole::{
 };
 use poll_promise::Promise;
 use single_value_channel as svc;
-use crate::states;
 
 use crate::egui_ext::ContextExt;
 

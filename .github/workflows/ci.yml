@@ -25,6 +25,10 @@ jobs:
         with:
           toolchain: nightly
           override: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get install librust-atk-dev
+        if: runner.os == 'linux'
       - name: Build & run tests
         run: cargo test
   test-docs:
@@ -44,6 +48,9 @@ jobs:
         with:
           toolchain: nightly
           override: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get install librust-atk-dev
       - name: Run doc tests with all features (this also compiles README examples)
         run: cargo test --doc --all-features
   lint:

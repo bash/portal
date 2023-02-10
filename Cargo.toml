@@ -32,3 +32,6 @@ egui = { git = "https://github.com/emilk/egui.git" }
 members = [
     "crates/portal-proc-macro"
 ]
+
+[build-dependencies]
+embed-resource = "1.4"

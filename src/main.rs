@@ -1,7 +1,5 @@
+use eframe::egui::{self};
 use portal::PortalApp;
-use eframe::{
-    egui::{self},
-};
 
 // TODO: show version somewhere in UI
 // TODO: cancellation support

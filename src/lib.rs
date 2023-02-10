@@ -19,7 +19,6 @@ mod tab_button;
 mod utils;
 mod view_switcher;
 
-
 #[derive(Default)]
 pub struct PortalApp {
     send_view: SendView,

@@ -7,7 +7,7 @@ use std::{
 use crate::{error::PortalError, update};
 use async_std::fs::File;
 use eframe::{
-    egui::{Button, ProgressBar, TextBuffer, TextEdit, Ui},
+    egui::{Button, ProgressBar, TextEdit, Ui},
     epaint::Vec2,
 };
 use futures::channel::oneshot;
@@ -24,7 +24,6 @@ use crate::egui_ext::ContextExt;
 
 #[derive(Default)]
 pub struct ReceiveView {
-    code: String,
     state: ReceiveState,
 }
 
@@ -36,14 +35,14 @@ struct Progress {
 
 impl Default for ReceiveState {
     fn default() -> Self {
-        ReceiveState::Initial()
+        ReceiveState::Initial(String::default())
     }
 }
 
 states! {
     enum ReceiveState;
 
-    state Initial();
+    state Initial(code: String);
 
     state Connecting() {
         execute(code: Code) -> Result<ReceiveRequest, PortalError> { connect(code).await }
@@ -58,7 +57,7 @@ states! {
     state Rejecting() {
         execute(request: ReceiveRequest) -> Result<(), PortalError> { reject(request).await }
         next {
-            Ok(()) => Initial(),
+            Ok(()) => Default::default(),
             Err(error) => Error(error),
         }
     }
@@ -85,14 +84,22 @@ states! {
 
 impl ReceiveView {
     pub fn show_switcher(&self) -> bool {
-        matches!(self.state, ReceiveState::Initial())
+        matches!(self.state, ReceiveState::Initial(_))
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
         self.state.next(ui);
 
         match &mut self.state {
-            ReceiveState::Initial() => self.show_receive_file_page(ui),
+            ReceiveState::Initial(ref mut code) => match show_receive_file_page(ui, code) {
+                None => {}
+                Some(ReceivePageResponse::Connect) => {
+                    update! {
+                        &mut self.state,
+                        ReceiveState::Initial(code) => ReceiveState::new_connecting(ui, Code(code))
+                    }
+                }
+            },
             ReceiveState::Connecting(_) => {
                 crate::page_with_content(
                     ui,
@@ -108,14 +115,40 @@ impl ReceiveView {
                 let error = error.to_string();
                 ui.horizontal(|ui| {
                     if ui.button("Back").clicked() {
-                        self.state = ReceiveState::Initial();
+                        self.state = ReceiveState::default();
                     }
                 });
 
                 crate::page(ui, "File Transfer Failed", error, "❌");
             }
-            ReceiveState::Connected(_) => {
-                self.show_connected_page(ui);
+            ReceiveState::Connected(ref receive_request) => {
+                match show_connected_page(ui, receive_request) {
+                    None => {}
+                    Some(ConnectedPageResponse::Accept) => {
+                        let (transit_sender, transit_promise) = Promise::new();
+                        let (progress, progress_updater) =
+                            svc::channel_starting_with(Progress::default());
+                        let (cancel_sender, cancel_receiver) = oneshot::channel();
+                        update! {
+                            &mut self.state,
+                            ReceiveState::Connected(receive_request) => ReceiveState::new_receiving(
+                                ui,
+                                receive_request,
+                                transit_sender,
+                                progress_updater,
+                                cancel_receiver,
+                                transit_promise,
+                                progress,
+                                Some(cancel_sender))
+                        }
+                    }
+                    Some(ConnectedPageResponse::Reject) => {
+                        update! {
+                            &mut self.state,
+                            ReceiveState::Connected(receive_request) => ReceiveState::new_rejecting(ui, receive_request)
+                        }
+                    }
+                }
             }
             ReceiveState::Receiving(_, ref transit_info, ref mut progress, ref mut cancel) => {
                 let Progress { received, total } = *progress.latest();
@@ -160,7 +193,7 @@ impl ReceiveView {
                 let downloaded_path = downloaded_path.clone();
                 ui.horizontal(|ui| {
                     if ui.button("Back").clicked() {
-                        self.state = ReceiveState::Initial();
+                        self.state = ReceiveState::default();
                     }
                 });
                 ui.label("Completed");
@@ -175,64 +208,65 @@ impl ReceiveView {
             }
         }
     }
+}
 
-    fn show_receive_file_page(&mut self, ui: &mut Ui) {
-        crate::page_with_content(
-            ui,
-            "Receive File",
-            "Enter the code from your peer below:",
-            "📥",
-            |ui| {
-                ui.add(TextEdit::singleline(&mut self.code).hint_text("Code"));
-                ui.add_space(5.0);
+#[must_use]
+enum ReceivePageResponse {
+    Connect,
+}
 
-                let input_empty =
-                    self.code.is_empty() || self.code.chars().all(|c| c.is_whitespace());
-
-                let min_button_size = Vec2::new(100.0, 0.0);
-
-                ui.add_enabled_ui(!input_empty, |ui| {
-                    if ui
-                        .add(Button::new("Receive File").min_size(min_button_size))
-                        .clicked()
-                    {
-                        self.state = ReceiveState::new_connecting(ui, Code(self.code.take()));
-                    }
-                });
-            },
-        );
-    }
-
-    fn show_connected_page(&mut self, ui: &mut Ui) {
-        crate::page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
-            if ui.button("Reject").clicked() {
-                update! {
-                    &mut self.state,
-                    ReceiveState::Connected(receive_request) => ReceiveState::new_rejecting(ui, receive_request)
-                }
-            }
-
+fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageResponse> {
+    crate::page_with_content(
+        ui,
+        "Receive File",
+        "Enter the code from your peer below:",
+        "📥",
+        |ui| {
+            ui.add(TextEdit::singleline(code).hint_text("Code"));
             ui.add_space(5.0);
 
-            if ui.button("Accept").clicked() {
-                let (transit_sender, transit_promise) = Promise::new();
-                let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
-                let (cancel_sender, cancel_receiver) = oneshot::channel();
-                update! {
-                    &mut self.state,
-                    ReceiveState::Connected(receive_request) => ReceiveState::new_receiving(
-                        ui,
-                        receive_request,
-                        transit_sender,
-                        progress_updater,
-                        cancel_receiver,
-                        transit_promise,
-                        progress,
-                        Some(cancel_sender))
+            let input_empty = code.is_empty() || code.chars().all(|c| c.is_whitespace());
+
+            let min_button_size = Vec2::new(100.0, 0.0);
+
+            ui.add_enabled_ui(!input_empty, |ui| {
+                if ui
+                    .add(Button::new("Receive File").min_size(min_button_size))
+                    .clicked()
+                {
+                    Some(ReceivePageResponse::Connect)
+                } else {
+                    None
                 }
-            }
-        });
-    }
+            })
+            .inner
+        },
+    )
+}
+
+#[must_use]
+enum ConnectedPageResponse {
+    Accept,
+    Reject,
+}
+
+fn show_connected_page(
+    ui: &mut Ui,
+    _receive_request: &ReceiveRequest,
+) -> Option<ConnectedPageResponse> {
+    crate::page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
+        if ui.button("Reject").clicked() {
+            return Some(ConnectedPageResponse::Accept);
+        }
+
+        ui.add_space(5.0);
+
+        if ui.button("Accept").clicked() {
+            return Some(ConnectedPageResponse::Reject);
+        }
+
+        None
+    })
 }
 
 async fn reject(receive_request: ReceiveRequest) -> Result<(), PortalError> {

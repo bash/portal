@@ -93,16 +93,16 @@ fn page<'a>(
     ui.label(text);
 }
 
-fn page_with_content<'a>(
+fn page_with_content<'a, T>(
     ui: &mut Ui,
     title: impl Into<RichText>,
     text: impl Into<WidgetText>,
     icon: impl Into<Option<&'a str>>,
-    add_contents: impl FnOnce(&mut Ui),
-) {
+    add_contents: impl FnOnce(&mut Ui) -> T,
+) -> T {
     page(ui, title, text, icon);
     ui.add_space(20.0);
-    add_contents(ui);
+    add_contents(ui)
 }
 
 #[macro_export]

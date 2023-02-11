@@ -20,9 +20,8 @@ pub fn open_file_in_folder(path: impl AsRef<Path>) -> Result<(), io::Error> {
     Ok(())
 }
 
-// TODO: Support linux: https://gitlab.gnome.org/World/pika-backup/-/blob/main/src/ui/page_archives/display.rs#L63
-
 #[cfg(target_os = "linux")]
 pub fn open_file_in_folder(_path: impl AsRef<Path>) -> Result<(), io::Error> {
+    // TODO: Support linux: https://gitlab.gnome.org/World/pika-backup/-/blob/main/src/ui/page_archives/display.rs#L63
     unimplemented!()
 }

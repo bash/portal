@@ -1,0 +1,134 @@
+name: release-flow
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+env:
+  # heads-up: this value is used as a pattern in a sed command as a workaround for a trunk issue
+  #   if you use special characters, take a look at the 'Make paths relative' step in the 'build-web' job
+  EXECUTABLE_NAME: portal
+  OSX_APP_NAME: Portal
+
+permissions:
+  contents: write
+
+jobs:
+  build-macOS:
+    runs-on: macos-latest
+
+    steps:
+      - name: Get tag
+        id: tag
+        uses: dawidd6/action-get-tag@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Remove build script
+        run: |
+          rm build.rs
+      - name: Install rust toolchain for Apple Silicon
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: aarch64-apple-darwin
+          override: true
+      - name: Build release for Apple Silicon
+        run: |
+          SDKROOT=$(xcrun -sdk macosx --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version) cargo build --release --target=aarch64-apple-darwin
+      - name: Install rust toolchain for Apple x86
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-apple-darwin
+          override: true
+      - name: Build release for x86 Apple
+        run: |
+          SDKROOT=$(xcrun -sdk macosx --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version) cargo build --release --target=x86_64-apple-darwin
+      - name: Create Universal Binary
+        run: |
+          lipo -create -output target/release/${{ env.EXECUTABLE_NAME }} target/aarch64-apple-darwin/release/${{ env.EXECUTABLE_NAME }} target/x86_64-apple-darwin/release/${{ env.EXECUTABLE_NAME }}
+      - name: Create release
+        run: |
+          mkdir -p build/macos/src/Project.app/Contents/MacOS
+          cp target/release/${{ env.EXECUTABLE_NAME }} build/macos/src/Project.app/Contents/MacOS/
+          strip build/macos/src/Project.app/Contents/MacOS/${{ env.EXECUTABLE_NAME }}
+          mv build/macos/src/Project.app build/macos/src/${{ env.OSX_APP_NAME }}.app
+          ln -s /Applications build/macos/src/
+          hdiutil create -fs HFS+ -volname "${{ env.OSX_APP_NAME }}" -srcfolder build/macos/src ${{ env.EXECUTABLE_NAME }}.dmg
+      - name: Upload release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ env.EXECUTABLE_NAME }}.dmg
+          asset_name: ${{ env.EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_macOS.dmg
+          tag: ${{ github.ref }}
+          overwrite: true
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get tag
+        id: tag
+        uses: dawidd6/action-get-tag@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get install librust-atk-dev libgtk-3-dev
+      - name: Build release
+        run: |
+          cargo build --release
+      - name: Prepare release
+        run: |
+          strip target/release/${{ env.EXECUTABLE_NAME }}
+          chmod +x target/release/${{ env.EXECUTABLE_NAME }}
+          mv target/release/${{ env.EXECUTABLE_NAME }} .
+      - name: Bundle release
+        run: |
+          tar -czf ${{ env.EXECUTABLE_NAME }}_linux.tar.gz ${{ env.EXECUTABLE_NAME }}
+      - name: Upload release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ env.EXECUTABLE_NAME }}_linux.tar.gz
+          asset_name: ${{ env.EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_linux.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Get tag
+        id: tag
+        uses: dawidd6/action-get-tag@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Build release
+        run: |
+          cargo build --release
+      - name: Zip release
+        uses: vimtor/action-zip@v1
+        with:
+          files: target/release/${{ env.EXECUTABLE_NAME }}.exe
+          dest: ${{ env.EXECUTABLE_NAME }}_windows.zip
+      - name: Upload release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ env.EXECUTABLE_NAME }}_windows.zip
+          asset_name: ${{ env.EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_windows.zip
+          tag: ${{ github.ref }}
+          overwrite: true

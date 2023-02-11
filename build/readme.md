@@ -1,0 +1,3 @@
+# Updating the icons
+Replace `build/windows/icon.ico` (used for windows executable)
+Replace `build/macos/icon_1024x1024.png` with a `1024` times `1024` pixel png icon and run `create_icns.sh` (make sure to run the script inside the `macos` directory) - Warning: sadly this seems to require a mac...

@@ -6,6 +6,14 @@ license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+name = "portal"
+path = "src/lib.rs"
+
+[[bin]]
+name = "portal"
+path = "src/main.rs"
+
 [dependencies]
 async-std = "1.12.0"
 dirs = "4.0.0"
@@ -32,3 +40,6 @@ egui = { git = "https://github.com/emilk/egui.git" }
 members = [
     "crates/portal-proc-macro"
 ]
+
+[build-dependencies]
+embed-resource = "1.4"

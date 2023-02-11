@@ -7,6 +7,7 @@ use eframe::{
     egui::{self, Layout, RichText, Ui, WidgetText},
     emath::Align,
 };
+use egui::Color32;
 use receive::ReceiveView;
 use send::SendView;
 use view_switcher::{view_switcher, ViewSwitcher};
@@ -58,6 +59,17 @@ impl ViewSwitcher for PortalApp {
         }
     }
 
+    fn apply_style_overrides(&self, view: &Self::View, style: &mut egui::Style) {
+        let (fill, stroke) = match view {
+            View::Send if style.visuals.dark_mode => (from_hex(0xDB8400), from_hex(0x38270E)),
+            View::Send => (from_hex(0xFF9D0A), from_hex(0x523A16)),
+            View::Receive if style.visuals.dark_mode => (from_hex(0x27A7D8), from_hex(0x183039)),
+            View::Receive => (from_hex(0x73CDF0), from_hex(0x183039)),
+        };
+        style.visuals.selection.bg_fill = fill;
+        style.visuals.selection.stroke.color = stroke;
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, view: &Self::View) {
         match view {
             View::Send => self.send_view.ui(ui),
@@ -101,4 +113,13 @@ macro_rules! update {
             _ => target,
         });
     };
+}
+
+fn from_hex(hex: u32) -> Color32 {
+    assert!(hex < 1 << 24);
+    Color32::from_rgb(
+        (hex >> 16 & 0xFF) as u8,
+        (hex >> 8 & 0xFF) as u8,
+        (hex & 0xFF) as u8,
+    )
 }

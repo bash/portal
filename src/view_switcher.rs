@@ -1,4 +1,5 @@
 use eframe::egui::{Id, RichText, Ui};
+use egui::Style;
 
 use crate::tab_button::TabButton;
 
@@ -8,6 +9,8 @@ pub trait ViewSwitcher {
     fn show_switcher(&self, view: &Self::View) -> bool;
 
     fn label(&self, view: &Self::View) -> RichText;
+
+    fn apply_style_overrides(&self, view: &Self::View, style: &mut Style);
 
     fn ui(&mut self, ui: &mut Ui, view: &Self::View);
 }
@@ -26,6 +29,11 @@ where
             for (index, view) in views.iter().enumerate() {
                 let is_active = active_view_index == index;
                 let button = TabButton::new(switcher.label(view)).selected(is_active);
+
+                if is_active {
+                    switcher.apply_style_overrides(view, ui.style_mut());
+                }
+
                 if ui.add(button).clicked() {
                     ui.memory_mut(|memory| memory.data.insert_persisted(id, index));
                 }
@@ -36,6 +44,7 @@ where
     for (index, view) in views.iter().enumerate() {
         let is_active = active_view_index == index;
         if is_active {
+            switcher.apply_style_overrides(view, ui.style_mut());
             switcher.ui(ui, view);
         }
     }

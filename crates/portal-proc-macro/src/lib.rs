@@ -129,6 +129,7 @@ fn quote_state_new_impl(
         .map(|StateField { ident, .. }| ident)
         .collect();
     quote! {
+        #[allow(clippy::too_many_arguments)]
         fn #new_ident(ui: &mut Ui, #params) -> Self {
             #enum_ident::#ident(
                 ui.ctx().spawn_async::<#execute_output>(async move #execute_block),

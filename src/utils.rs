@@ -1,4 +1,4 @@
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(target_os = "linux"))]
 use std::process::Command;
 use std::{io, path::Path};
 

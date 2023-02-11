@@ -50,10 +50,10 @@ jobs:
           lipo -create -output target/release/${{ env.EXECUTABLE_NAME }} target/aarch64-apple-darwin/release/${{ env.EXECUTABLE_NAME }} target/x86_64-apple-darwin/release/${{ env.EXECUTABLE_NAME }}
       - name: Create release
         run: |
-          mkdir -p build/macos/src/Game.app/Contents/MacOS
+          mkdir -p build/macos/src/Project.app/Contents/MacOS
           cp target/release/${{ env.EXECUTABLE_NAME }} build/macos/src/Project.app/Contents/MacOS/
-          strip build/macos/src/Game.app/Contents/MacOS/${{ env.EXECUTABLE_NAME }}
-          mv build/macos/src/Game.app build/macos/src/${{ env.OSX_APP_NAME }}.app
+          strip build/macos/src/Project.app/Contents/MacOS/${{ env.EXECUTABLE_NAME }}
+          mv build/macos/src/Project.app build/macos/src/${{ env.OSX_APP_NAME }}.app
           ln -s /Applications build/macos/src/
           hdiutil create -fs HFS+ -volname "${{ env.OSX_APP_NAME }}" -srcfolder build/macos/src ${{ env.EXECUTABLE_NAME }}.dmg
       - name: Upload release

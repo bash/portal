@@ -1,4 +1,4 @@
-#[cfg(not(target_os = "linux"))]
+#![allow(unused_imports)] // TODO: Remove this line
 use std::process::Command;
 use std::{io, path::Path};
 

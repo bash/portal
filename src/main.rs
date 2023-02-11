@@ -18,6 +18,6 @@ async fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Portal",
         options,
-        Box::new(|_cc| Box::new(PortalApp::default())),
+        Box::new(|_cc| Box::<PortalApp>::default()),
     )
 }

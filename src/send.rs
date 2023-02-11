@@ -341,7 +341,7 @@ async fn send_file(
         {
             let ctx = ctx.clone();
             move |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
+                transit_info_sender.send(transit_info);
                 ctx.request_repaint();
             }
         },
@@ -375,7 +375,7 @@ async fn send_folder(
         {
             let ctx = ctx.clone();
             move |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
+                transit_info_sender.send(transit_info);
                 ctx.request_repaint();
             }
         },

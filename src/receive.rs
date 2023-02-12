@@ -237,13 +237,13 @@ fn show_connected_page(
 ) -> Option<ConnectedPageResponse> {
     crate::page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
         if ui.button("Reject").clicked() {
-            return Some(ConnectedPageResponse::Accept);
+            return Some(ConnectedPageResponse::Reject);
         }
 
         ui.add_space(5.0);
 
         if ui.button("Accept").clicked() {
-            return Some(ConnectedPageResponse::Reject);
+            return Some(ConnectedPageResponse::Accept);
         }
 
         None

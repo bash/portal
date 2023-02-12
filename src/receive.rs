@@ -10,7 +10,7 @@ use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
     epaint::Vec2,
 };
-use futures::channel::oneshot;
+use futures::{channel::oneshot, Future};
 use magic_wormhole::{
     transfer::{self, ReceiveRequest},
     transit::{self, Abilities, TransitInfo},
@@ -27,7 +27,7 @@ pub struct ReceiveView {
     state: ReceiveState,
 }
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 struct Progress {
     received: u64,
     total: u64,
@@ -62,14 +62,10 @@ states! {
         }
     }
 
-    state Receiving(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, cancel: Option<oneshot::Sender<()>>) {
-        execute(
-            request: ReceiveRequest,
-            transit_info_sender: poll_promise::Sender<TransitInfo>,
-            progress_updater: svc::Updater<Progress>,
-            cancel_receiver: oneshot::Receiver<()>) -> Result<PathBuf, PortalError>
+    state Receiving(controller: ReceivingController) {
+        execute(future: impl std::future::Future<Output = Result<PathBuf, PortalError>> + 'static + Send) -> Result<PathBuf, PortalError>
         {
-            accept(request, transit_info_sender, progress_updater, cancel_receiver).await
+            future.await
         }
         next {
             Ok(path) => Completed(path),
@@ -125,21 +121,15 @@ impl ReceiveView {
                 match show_connected_page(ui, receive_request) {
                     None => {}
                     Some(ConnectedPageResponse::Accept) => {
-                        let (transit_sender, transit_promise) = Promise::new();
-                        let (progress, progress_updater) =
-                            svc::channel_starting_with(Progress::default());
-                        let (cancel_sender, cancel_receiver) = oneshot::channel();
                         update! {
                             &mut self.state,
-                            ReceiveState::Connected(receive_request) => ReceiveState::new_receiving(
-                                ui,
-                                receive_request,
-                                transit_sender,
-                                progress_updater,
-                                cancel_receiver,
-                                transit_promise,
-                                progress,
-                                Some(cancel_sender))
+                            ReceiveState::Connected(receive_request) => {
+                                let (controller, future) = ReceivingController::start(receive_request);
+                                ReceiveState::new_receiving(
+                                    ui,
+                                    future,
+                                    controller)
+                            }
                         }
                     }
                     Some(ConnectedPageResponse::Reject) => {
@@ -150,14 +140,14 @@ impl ReceiveView {
                     }
                 }
             }
-            ReceiveState::Receiving(_, ref transit_info, ref mut progress, ref mut cancel) => {
-                let Progress { received, total } = *progress.latest();
+            ReceiveState::Receiving(_, ref mut controller) => {
+                let Progress { received, total } = *controller.progress();
 
                 if ui.horizontal(|ui| ui.button("Cancel").clicked()).inner {
-                    cancel.take().map(|cancel| cancel.send(()));
+                    controller.cancel();
                 }
 
-                match transit_info.ready() {
+                match controller.transit_info() {
                     Some(_transit_info) => {
                         // TODO: show transit info
                         crate::page_with_content(ui, "Sending File", "TODO", "📥", |ui| {
@@ -271,6 +261,46 @@ fn show_connected_page(
 
 async fn reject(receive_request: ReceiveRequest) -> Result<(), PortalError> {
     receive_request.reject().await.map_err(Into::into)
+}
+
+struct ReceivingController {
+    transit_promise: Promise<TransitInfo>,
+    progress: svc::Receiver<Progress>,
+    cancel_sender: Option<oneshot::Sender<()>>,
+}
+
+impl ReceivingController {
+    fn start(
+        receive_request: ReceiveRequest,
+    ) -> (Self, impl Future<Output = Result<PathBuf, PortalError>>) {
+        let (transit_sender, transit_promise) = Promise::new();
+        let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
+        let (cancel_sender, cancel_receiver) = oneshot::channel();
+        let controller = ReceivingController {
+            transit_promise,
+            progress,
+            cancel_sender: Some(cancel_sender),
+        };
+        let future = accept(
+            receive_request,
+            transit_sender,
+            progress_updater,
+            cancel_receiver,
+        );
+        (controller, future)
+    }
+
+    fn transit_info(&self) -> Option<&TransitInfo> {
+        self.transit_promise.ready()
+    }
+
+    fn progress(&mut self) -> &Progress {
+        self.progress.latest()
+    }
+
+    fn cancel(&mut self) {
+        self.cancel_sender.take().map(|c| c.send(()));
+    }
 }
 
 async fn accept(

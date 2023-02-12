@@ -10,6 +10,8 @@ use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
     epaint::Vec2,
 };
+use egui::{Key, Modifiers};
+use futures::future::{AbortHandle, AbortRegistration, Abortable, Aborted};
 use futures::{channel::oneshot, Future};
 use magic_wormhole::{
     transfer::{self, ReceiveRequest},
@@ -97,15 +99,14 @@ impl ReceiveView {
                 }
             },
             ReceiveState::Connecting(_, controller) => {
+                cancel_button(ui, || controller.cancel());
+
                 crate::page_with_content(
                     ui,
                     "Connecting with peer",
                     "Preparing to Receive File",
                     "📥",
                     |ui| {
-                        if ui.button("Cancel").clicked() {
-                            controller.cancel();
-                        }
                         ui.spinner();
                     },
                 );
@@ -140,9 +141,7 @@ impl ReceiveView {
             ReceiveState::Receiving(_, ref mut controller) => {
                 let Progress { received, total } = *controller.progress();
 
-                if ui.horizontal(|ui| ui.button("Cancel").clicked()).inner {
-                    controller.cancel();
-                }
+                cancel_button(ui, || controller.cancel());
 
                 match controller.transit_info() {
                     Some(_transit_info) => {
@@ -194,6 +193,14 @@ impl ReceiveView {
                 }
             }
         }
+    }
+}
+
+fn cancel_button(ui: &mut Ui, cancel: impl FnOnce()) {
+    if ui.horizontal(|ui| ui.button("Cancel").clicked()).inner
+        || ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
+    {
+        cancel();
     }
 }
 
@@ -345,26 +352,43 @@ async fn accept(
 }
 
 struct ConnectingController {
+    wormhole_abort_handle: AbortHandle,
     cancel_sender: Option<oneshot::Sender<()>>,
 }
 
 impl ConnectingController {
     fn new(code: Code) -> (impl Future<Output = ConnectResult>, Self) {
+        let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
         let (cancel_sender, cancel_receiver) = oneshot::channel();
         let cancel_future = async { _ = cancel_receiver.await };
         let controller = ConnectingController {
             cancel_sender: Some(cancel_sender),
+            wormhole_abort_handle,
         };
-        (connect(code, cancel_future), controller)
+        (connect(code, abort_registration, cancel_future), controller)
     }
 
     fn cancel(&mut self) {
         self.cancel_sender.take().map(|c| c.send(()));
+        self.wormhole_abort_handle.abort();
     }
 }
 
-async fn connect(code: Code, cancel: impl Future<Output = ()>) -> ConnectResult {
-    let (_, wormhole) = Wormhole::connect_with_code(transfer::APP_CONFIG, code).await?;
+async fn connect(
+    code: Code,
+    abort_registration: AbortRegistration,
+    cancel: impl Future<Output = ()>,
+) -> ConnectResult {
+    let (_, wormhole) = match Abortable::new(
+        Wormhole::connect_with_code(transfer::APP_CONFIG, code),
+        abort_registration,
+    )
+    .await
+    {
+        Ok(result) => result?,
+        Err(Aborted) => return Ok(None),
+    };
+
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
             .unwrap();

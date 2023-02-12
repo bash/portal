@@ -21,12 +21,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
+type ConnectResult = Result<
+    (
+        WormholeWelcome,
+        BoxFuture<'static, Result<Wormhole, PortalError>>,
+    ),
+    PortalError,
+>;
+
 states! {
     pub enum SendView;
 
     state Ready();
 
-    async state Connecting(request: SendRequest) -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, PortalError>>), PortalError> {
+    async state Connecting(request: SendRequest) -> ConnectResult {
         new(request: SendRequest) {
             (connect(), request)
         }
@@ -262,13 +270,7 @@ fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String 
     format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
-async fn connect() -> Result<
-    (
-        WormholeWelcome,
-        BoxFuture<'static, Result<Wormhole, PortalError>>,
-    ),
-    PortalError,
-> {
+async fn connect() -> ConnectResult {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
     Ok((welcome, Box::pin(async { Ok(future.await?) })))
 }

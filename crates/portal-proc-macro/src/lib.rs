@@ -7,8 +7,8 @@ use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
-    braced, parenthesized, parse_macro_input, parse_quote, Arm, Block, Error, FnArg, Ident, Token,
-    Type, Visibility,
+    braced, parenthesized, parse_macro_input, Arm, Error, Expr, FnArg, Ident, Token, Type,
+    Visibility,
 };
 
 #[proc_macro]
@@ -45,7 +45,10 @@ fn quote_enum_variant(
     }: &State,
 ) -> TokenStream2 {
     let promise_field = async_.as_ref().map(
-        |AsyncState { execute_output, .. }| quote! { ::poll_promise::Promise<#execute_output>, },
+        |AsyncState {
+             output: execute_output,
+             ..
+         }| quote! { ::poll_promise::Promise<#execute_output>, },
     );
     let quoted_fields: Punctuated<_, Token![,]> =
         fields.iter().map(|StateField { ty, .. }| ty).collect();
@@ -109,30 +112,28 @@ fn quote_state_new_impl(
     enum_ident: &Ident,
     State { ident, fields, .. }: &State,
     AsyncState {
-        execute_inputs,
-        execute_output,
-        execute_block,
+        new_inputs,
+        output,
+        new_expr,
         ..
     }: &AsyncState,
 ) -> TokenStream2 {
-    let mut new_ident: Ident =
-        syn::parse_str(&format!("new_{}", ident.to_string().to_snake_case())).unwrap();
+    let mut new_ident: Ident = Ident::new(
+        &format!("new_{}", ident.to_string().to_snake_case()),
+        ident.span(),
+    );
     new_ident.set_span(ident.span());
-    let field_params: Punctuated<_, Token![,]> = fields
-        .iter()
-        .map::<FnArg, _>(|StateField { ident, ty }| parse_quote! { #ident: #ty })
-        .collect();
-    let params: Punctuated<_, Token![,]> =
-        execute_inputs.iter().chain(field_params.iter()).collect();
+    let params: Punctuated<_, Token![,]> = new_inputs.iter().collect();
     let field_args: Punctuated<_, Token![,]> = fields
         .iter()
-        .map(|StateField { ident, .. }| ident)
+        .map(|StateField { ident, .. }| Ident::new(&format!("__new_result_{ident}"), ident.span()))
         .collect();
     quote! {
         #[allow(clippy::too_many_arguments)]
         fn #new_ident(ui: &mut Ui, #params) -> Self {
+            let (__future, #field_args) = #new_expr;
             #enum_ident::#ident(
-                ui.ctx().spawn_async::<#execute_output>(async move #execute_block),
+                ui.ctx().spawn_async::<#output>(__future),
                 #field_args
             )
         }
@@ -173,6 +174,11 @@ struct State {
 
 impl Parse for State {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let is_async = input.peek(Token![async]);
+        if is_async {
+            input.parse::<Token![async]>()?;
+        }
+
         parse_custom_keyword(input, "state")?;
 
         let ident: Ident = input.parse()?;
@@ -182,13 +188,11 @@ impl Parse for State {
         let fields: Punctuated<StateField, Token![,]> =
             Punctuated::parse_terminated(&fields_unparsed)?;
 
-        let async_: Option<AsyncState> = if input.peek(Token![;]) {
+        let async_: Option<AsyncState> = if is_async {
+            Some(input.parse()?)
+        } else {
             input.parse::<Token![;]>()?;
             None
-        } else {
-            let async_unparsed;
-            braced!(async_unparsed in input);
-            Some(async_unparsed.parse()?)
         };
 
         Ok(State {
@@ -214,36 +218,41 @@ impl Parse for StateField {
 }
 
 struct AsyncState {
-    execute_inputs: Punctuated<FnArg, Token![,]>,
-    execute_output: Type,
-    execute_block: Block,
+    new_inputs: Punctuated<FnArg, Token![,]>,
+    output: Type,
+    new_expr: Expr,
     next_arms: Vec<Arm>,
 }
 
 impl Parse for AsyncState {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        parse_custom_keyword(input, "execute")?;
-        let execute_inputs_unparsed;
-        parenthesized!(execute_inputs_unparsed in input);
-        let execute_inputs: Punctuated<FnArg, Token![,]> =
-            Punctuated::parse_terminated(&execute_inputs_unparsed)?;
         input.parse::<Token![->]>()?;
-        let execute_output: Type = input.parse()?;
-        let execute_block: Block = input.parse()?;
 
-        parse_custom_keyword(input, "next")?;
+        let output: Type = input.parse()?;
+
+        let async_block;
+        braced!(async_block in input);
+
+        parse_custom_keyword(&async_block, "new")?;
+        let execute_inputs_unparsed;
+        parenthesized!(execute_inputs_unparsed in &async_block);
+        let new_inputs: Punctuated<FnArg, Token![,]> =
+            Punctuated::parse_terminated(&execute_inputs_unparsed)?;
+        let new_expr: Expr = async_block.parse()?;
+
+        parse_custom_keyword(&async_block, "next")?;
 
         let next_arms_unparsed;
-        braced!(next_arms_unparsed in input);
+        braced!(next_arms_unparsed in &async_block);
         let mut next_arms: Vec<Arm> = Vec::new();
         while !next_arms_unparsed.is_empty() {
             next_arms.push(next_arms_unparsed.parse()?);
         }
 
         Ok(AsyncState {
-            execute_inputs,
-            execute_output,
-            execute_block,
+            new_inputs,
+            output,
+            new_expr,
             next_arms,
         })
     }

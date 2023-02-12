@@ -5,7 +5,7 @@ use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
     epaint::Vec2,
 };
-use futures::{future::BoxFuture, Future};
+use futures::future::BoxFuture;
 use magic_wormhole::{
     transfer::{self},
     transit::{self, Abilities, TransitInfo},
@@ -26,9 +26,9 @@ states! {
 
     state Ready();
 
-    state Connecting(request: SendRequest) {
-        execute() -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, PortalError>>), PortalError> {
-            connect().await
+    async state Connecting(request: SendRequest) -> Result<(WormholeWelcome, BoxFuture<'static, Result<Wormhole, PortalError>>), PortalError> {
+        new(request: SendRequest) {
+            (connect(), request)
         }
         next {
             Ok((welcome, wormhole)) => Self::new_connected(ui, wormhole, welcome, request),
@@ -36,22 +36,20 @@ states! {
         }
     }
 
-    state Connected(welcome: WormholeWelcome, request: SendRequest) {
-        execute(wormhole: BoxFuture<'static, Result<Wormhole, PortalError>>) -> Result<Wormhole, PortalError> {
-            wormhole.await
+    async state Connected(welcome: WormholeWelcome, request: SendRequest) -> Result<Wormhole, PortalError> {
+        new(wormhole: BoxFuture<'static, Result<Wormhole, PortalError>>, welcome: WormholeWelcome, request: SendRequest) {
+            (wormhole, welcome, request)
         }
         next {
-            Ok(wormhole) => {
-                let (future, transit_info, progress) = send(ui.ctx().clone(), &request, wormhole);
-                Self::new_sending(ui, future, transit_info, progress, request)
-            },
+            Ok(wormhole) => Self::new_sending(ui, wormhole, request),
             Err(error) => Error(error),
         }
     }
 
-    state Sending(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, request: SendRequest) {
-        execute(future: impl Future<Output = Result<(), PortalError>> + Send + 'static) -> Result<(), PortalError> {
-            future.await
+    async state Sending(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, request: SendRequest) -> Result<(), PortalError> {
+        new(wormhole: Wormhole, request: SendRequest) {
+            let (future, transit_info, progress) = send(ui.ctx().clone(), &request, wormhole);
+            (future, transit_info, progress, request)
         }
         next {
             Ok(_) => Complete(request),

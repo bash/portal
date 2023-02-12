@@ -44,8 +44,8 @@ states! {
 
     state Initial(code: String);
 
-    state Connecting() {
-        execute(code: Code) -> Result<ReceiveRequest, PortalError> { connect(code).await }
+    async state Connecting() -> Result<ReceiveRequest, PortalError> {
+        new(code: Code) { (connect(code),) }
         next {
             Ok(receive_request) => Connected(receive_request),
             Err(error) => Error(error),
@@ -54,19 +54,16 @@ states! {
 
     state Connected(request: ReceiveRequest);
 
-    state Rejecting() {
-        execute(request: ReceiveRequest) -> Result<(), PortalError> { reject(request).await }
+    async state Rejecting() -> Result<(), PortalError> {
+        new(request: ReceiveRequest) { (reject(request),) }
         next {
             Ok(()) => Default::default(),
             Err(error) => Error(error),
         }
     }
 
-    state Receiving(controller: ReceivingController) {
-        execute(future: impl std::future::Future<Output = Result<PathBuf, PortalError>> + 'static + Send) -> Result<PathBuf, PortalError>
-        {
-            future.await
-        }
+    async state Receiving(controller: ReceivingController) -> Result<PathBuf, PortalError> {
+        new(receive_request: ReceiveRequest) { ReceivingController::new(receive_request) }
         next {
             Ok(path) => Completed(path),
             Err(error) => Error(error),
@@ -123,13 +120,7 @@ impl ReceiveView {
                     Some(ConnectedPageResponse::Accept) => {
                         update! {
                             &mut self.state,
-                            ReceiveState::Connected(receive_request) => {
-                                let (controller, future) = ReceivingController::start(receive_request);
-                                ReceiveState::new_receiving(
-                                    ui,
-                                    future,
-                                    controller)
-                            }
+                            ReceiveState::Connected(receive_request) => ReceiveState::new_receiving(ui, receive_request)
                         }
                     }
                     Some(ConnectedPageResponse::Reject) => {
@@ -270,9 +261,9 @@ struct ReceivingController {
 }
 
 impl ReceivingController {
-    fn start(
+    fn new(
         receive_request: ReceiveRequest,
-    ) -> (Self, impl Future<Output = Result<PathBuf, PortalError>>) {
+    ) -> (impl Future<Output = Result<PathBuf, PortalError>>, Self) {
         let (transit_sender, transit_promise) = Promise::new();
         let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
         let (cancel_sender, cancel_receiver) = oneshot::channel();
@@ -287,7 +278,7 @@ impl ReceivingController {
             progress_updater,
             cancel_receiver,
         );
-        (controller, future)
+        (future, controller)
     }
 
     fn transit_info(&self) -> Option<&TransitInfo> {

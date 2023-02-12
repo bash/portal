@@ -2,7 +2,7 @@ use std::{future, path::PathBuf};
 
 use crate::{
     error::PortalError,
-    fs::{sanitize_untrusted_file_path, save_with_conflict_resolution},
+    fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
     sync::BorrowingOneshotReceiver,
     update,
 };
@@ -19,7 +19,6 @@ use magic_wormhole::{
 };
 use portal_proc_macro::states;
 use single_value_channel as svc;
-use tempfile::PersistError;
 
 use crate::egui_ext::ContextExt;
 
@@ -319,24 +318,19 @@ async fn accept(
         )
         .await?;
 
-    let mut temp_file = Some(temp_file);
-    let final_path = save_with_conflict_resolution(
+    let file_name = sanitize_untrusted_filename(
+        &untrusted_filename,
+        "Downloaded File".as_ref(),
+        "bin".as_ref(),
+    );
+    let persisted_path = persist_with_conflict_resolution(
+        temp_file,
         dirs::download_dir().expect("Unable to detect downloads directory"),
-        sanitize_untrusted_file_path(
-            &untrusted_filename,
-            "Downloaded File".as_ref(),
-            "bin".as_ref(),
-        ),
-        move |path| match temp_file.take().unwrap().persist_noclobber(&path) {
-            Ok(_) => Ok(()),
-            Err(PersistError { error, file }) => {
-                temp_file = Some(file);
-                Err(error)
-            }
-        },
+        file_name,
+        persist_temp_file,
     )?;
 
-    Ok(final_path)
+    Ok(persisted_path)
 }
 
 async fn connect(code: Code) -> Result<ReceiveRequest, PortalError> {

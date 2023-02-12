@@ -1,8 +1,8 @@
-use std::{
-    borrow::Cow,
-    ffi::{OsStr, OsString},
-    path::{Path, PathBuf},
-};
+use std::borrow::Cow;
+use std::ffi::{OsStr, OsString};
+use std::io::{self, ErrorKind};
+use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 
 pub struct Filename<'a> {
     stem: Cow<'a, OsStr>,
@@ -28,7 +28,7 @@ impl<'a> Filename<'a> {
     }
 }
 
-pub fn sanitize_untrusted_file_path<'a>(
+pub fn sanitize_untrusted_filename<'a>(
     file_path: &'a Path,
     fallback_file_stem: &'a OsStr,
     fallback_extension: &'a OsStr,
@@ -36,32 +36,57 @@ pub fn sanitize_untrusted_file_path<'a>(
     let stem = file_path
         .file_stem()
         .filter(|s| !s.is_empty())
-        .unwrap_or(fallback_file_stem.as_ref());
+        .unwrap_or(fallback_file_stem);
     let extension = file_path
         .extension()
         .filter(|e| !e.is_empty())
-        .unwrap_or(fallback_extension.as_ref());
+        .unwrap_or(fallback_extension);
     Filename {
         stem: Cow::Borrowed(stem),
         extension,
     }
 }
 
-pub fn save_with_conflict_resolution(
+pub enum PersistResult<T> {
+    Ok,
+    Conflict(T),
+    Err(io::Error),
+}
+
+pub fn persist_temp_file(file: NamedTempFile, path: &Path) -> PersistResult<NamedTempFile> {
+    to_persist_result(file.persist_noclobber(path))
+}
+
+fn to_persist_result<T>(result: Result<T, tempfile::PersistError>) -> PersistResult<NamedTempFile> {
+    match result {
+        Ok(_) => PersistResult::Ok,
+        Err(error) if error.error.kind() == ErrorKind::AlreadyExists => {
+            PersistResult::Conflict(error.file)
+        }
+        Err(error) => PersistResult::Err(error.error),
+    }
+}
+
+pub fn persist_with_conflict_resolution<T>(
+    state: T,
     mut path: PathBuf,
     filename: Filename,
-    mut save: impl FnMut(&Path) -> std::io::Result<()>,
-) -> std::io::Result<PathBuf> {
+    mut save: impl FnMut(T, &Path) -> PersistResult<T>,
+) -> io::Result<PathBuf> {
     path.push(filename.to_os_string());
 
-    let mut result = save(&path);
+    let mut result = save(state, &path);
 
     let mut counter = 1;
-    while let Err(ref error) = result && error.kind() == std::io::ErrorKind::AlreadyExists {
+    while let PersistResult::Conflict(state) = result {
         path.set_file_name(filename.with_counter(counter).to_os_string());
-        result = save(&path);
+        result = save(state, &path);
         counter += 1;
     }
 
-    Ok(path)
+    match result {
+        PersistResult::Conflict(_) => unreachable!(),
+        PersistResult::Ok => Ok(path),
+        PersistResult::Err(error) => Err(error),
+    }
 }

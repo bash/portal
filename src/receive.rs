@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{error::PortalError, update};
+use crate::{error::PortalError, sync::BorrowingOneshotReceiver, update};
 use async_std::fs::File;
 use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
@@ -16,7 +16,6 @@ use magic_wormhole::{
     transit::{self, Abilities, TransitInfo},
     Code, Wormhole,
 };
-use poll_promise::Promise;
 use portal_proc_macro::states;
 use single_value_channel as svc;
 
@@ -255,7 +254,7 @@ async fn reject(receive_request: ReceiveRequest) -> Result<(), PortalError> {
 }
 
 struct ReceivingController {
-    transit_promise: Promise<TransitInfo>,
+    transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
     progress: svc::Receiver<Progress>,
     cancel_sender: Option<oneshot::Sender<()>>,
 }
@@ -264,25 +263,25 @@ impl ReceivingController {
     fn new(
         receive_request: ReceiveRequest,
     ) -> (impl Future<Output = Result<PathBuf, PortalError>>, Self) {
-        let (transit_sender, transit_promise) = Promise::new();
+        let (transit_info_sender, transit_info_receiver) = ::oneshot::channel();
         let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
         let (cancel_sender, cancel_receiver) = oneshot::channel();
         let controller = ReceivingController {
-            transit_promise,
+            transit_info_receiver: transit_info_receiver.into(),
             progress,
             cancel_sender: Some(cancel_sender),
         };
         let future = accept(
             receive_request,
-            transit_sender,
+            transit_info_sender,
             progress_updater,
             cancel_receiver,
         );
         (future, controller)
     }
 
-    fn transit_info(&self) -> Option<&TransitInfo> {
-        self.transit_promise.ready()
+    fn transit_info(&mut self) -> Option<&TransitInfo> {
+        self.transit_info_receiver.value()
     }
 
     fn progress(&mut self) -> &Progress {
@@ -296,7 +295,7 @@ impl ReceivingController {
 
 async fn accept(
     receive_request: ReceiveRequest,
-    transit_info_sender: poll_promise::Sender<TransitInfo>,
+    transit_info_sender: ::oneshot::Sender<TransitInfo>,
     progress_updater: svc::Updater<Progress>,
     cancel: oneshot::Receiver<()>,
 ) -> Result<PathBuf, PortalError> {
@@ -308,7 +307,7 @@ async fn accept(
     receive_request
         .accept(
             |transit_info, _| {
-                transit_info_sender.send(transit_info);
+                _ = transit_info_sender.send(transit_info);
             },
             move |received, total| {
                 _ = progress_updater.update(Progress { received, total });

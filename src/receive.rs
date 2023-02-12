@@ -62,10 +62,11 @@ states! {
         }
     }
 
-    async state Receiving(controller: ReceivingController) -> Result<PathBuf, PortalError> {
+    async state Receiving(controller: ReceivingController) -> Result<Option<PathBuf>, PortalError> {
         new(receive_request: ReceiveRequest) { ReceivingController::new(receive_request) }
         next {
-            Ok(path) => Completed(path),
+            Ok(Some(path)) => Completed(path),
+            Ok(None) => Default::default(),
             Err(error) => Error(error),
         }
     }
@@ -263,7 +264,7 @@ struct ReceivingController {
 impl ReceivingController {
     fn new(
         receive_request: ReceiveRequest,
-    ) -> (impl Future<Output = Result<PathBuf, PortalError>>, Self) {
+    ) -> (impl Future<Output = Result<Option<PathBuf>, PortalError>>, Self) {
         let (transit_info_sender, transit_info_receiver) = ::oneshot::channel();
         let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
         let (cancel_sender, cancel_receiver) = oneshot::channel();
@@ -299,12 +300,13 @@ async fn accept(
     transit_info_sender: ::oneshot::Sender<TransitInfo>,
     progress_updater: svc::Updater<Progress>,
     cancel: oneshot::Receiver<()>,
-) -> Result<PathBuf, PortalError> {
+) -> Result<Option<PathBuf>, PortalError> {
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
 
     let untrusted_filename = receive_request.filename.clone();
 
+    let mut canceled = false;
     receive_request
         .accept(
             |transit_info, _| {
@@ -314,9 +316,12 @@ async fn accept(
                 _ = progress_updater.update(Progress { received, total });
             },
             &mut temp_file_async,
-            async { _ = cancel.await },
+            async { _ = cancel.await; canceled = true; },
         )
         .await?;
+    if canceled {
+        return Ok(None);
+    }
 
     let file_name = sanitize_untrusted_filename(
         &untrusted_filename,
@@ -330,7 +335,7 @@ async fn accept(
         persist_temp_file,
     )?;
 
-    Ok(persisted_path)
+    Ok(Some(persisted_path))
 }
 
 async fn connect(code: Code) -> Result<ReceiveRequest, PortalError> {

@@ -1,6 +1,7 @@
 use crate::egui_ext::ContextExt;
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
+use crate::transmit_info::transit_info_message;
 use crate::widgets::{cancel_button, CancelLabel};
 use async_std::fs::File;
 use eframe::{
@@ -17,8 +18,7 @@ use portal_proc_macro::states;
 use rfd::FileDialog;
 use single_value_channel as svc;
 use std::{
-    ffi::OsStr,
-    fmt, future,
+    future,
     path::{Path, PathBuf},
 };
 
@@ -245,25 +245,6 @@ fn show_transfer_progress(
             },
         ),
     }
-}
-
-struct TransitInfoDisplay<'a>(&'a TransitInfo);
-
-impl<'a> fmt::Display for TransitInfoDisplay<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use TransitInfo::*;
-        match self.0 {
-            Direct => write!(f, " via direct transfer"),
-            Relay { name: None } => write!(f, " via relay"),
-            Relay { name: Some(relay) } => write!(f, " via relay \"{relay}\""),
-            _ => Ok(()),
-        }
-    }
-}
-
-fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String {
-    let filename = filename.to_string_lossy();
-    format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
 async fn connect() -> ConnectResult {

@@ -18,6 +18,7 @@ mod fs;
 mod receive;
 mod send;
 mod sync;
+mod transmit_info;
 mod utils;
 mod widgets;
 

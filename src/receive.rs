@@ -1,4 +1,5 @@
 use crate::egui_ext::ContextExt;
+use crate::transmit_info::transit_info_message;
 use crate::widgets::{cancel_button, CancelLabel};
 use crate::{
     error::PortalError,
@@ -66,8 +67,12 @@ states! {
         }
     }
 
-    async state Receiving(controller: ReceivingController) -> ReceiveResult {
-        new(receive_request: ReceiveRequest) { ReceivingController::new(receive_request) }
+    async state Receiving(controller: ReceivingController, filename: PathBuf) -> ReceiveResult {
+        new(receive_request: ReceiveRequest) {
+            let filename = receive_request.filename.clone();
+            let (future, controller) = ReceivingController::new(receive_request);
+            (future, controller, filename)
+         }
         next {
             Ok(Some(path)) => Completed(path),
             Ok(None) => Default::default(),
@@ -135,7 +140,7 @@ impl ReceiveView {
                     }
                 }
             }
-            ReceiveState::Receiving(_, ref mut controller) => {
+            ReceiveState::Receiving(_, ref mut controller, ref filename) => {
                 let Progress { received, total } = *controller.progress();
 
                 if cancel_button(ui, CancelLabel::Cancel) {
@@ -143,19 +148,22 @@ impl ReceiveView {
                 }
 
                 match controller.transit_info() {
-                    Some(_transit_info) => {
-                        // TODO: show transit info
-                        crate::page_with_content(ui, "Sending File", "TODO", "📥", |ui| {
+                    Some(transit_info) => crate::page_with_content(
+                        ui,
+                        "Receiving File",
+                        transit_info_message(transit_info, filename.as_os_str()),
+                        "📥",
+                        |ui| {
                             ui.add(
                                 ProgressBar::new((received as f64 / total as f64) as f32)
                                     .animate(true),
                             );
-                        })
-                    }
+                        },
+                    ),
                     None => crate::page_with_content(
                         ui,
                         "Connected to Peer",
-                        format!("Preparing to receive file \"{}\"", "TODO"),
+                        format!("Preparing to receive file \"{}\"", filename.display()),
                         "📥",
                         |ui| {
                             ui.spinner();

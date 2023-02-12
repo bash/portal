@@ -1,5 +1,6 @@
 use crate::egui_ext::ContextExt;
 use crate::error::PortalError;
+use crate::sync::BorrowingOneshotReceiver;
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
@@ -11,7 +12,6 @@ use magic_wormhole::{
     transit::{self, Abilities, TransitInfo},
     Wormhole, WormholeWelcome,
 };
-use poll_promise::Promise;
 use portal_proc_macro::states;
 use rfd::FileDialog;
 use single_value_channel as svc;
@@ -276,13 +276,13 @@ async fn connect() -> ConnectResult {
 }
 
 pub struct SendingController {
-    transit_info_promise: Promise<TransitInfo>,
+    transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
     progress_receiver: svc::Receiver<Progress>,
 }
 
 impl SendingController {
-    fn transit_info(&self) -> Option<&TransitInfo> {
-        self.transit_info_promise.ready()
+    fn transit_info(&mut self) -> Option<&TransitInfo> {
+        self.transit_info_receiver.value()
     }
 
     fn progress(&mut self) -> Progress {
@@ -298,7 +298,7 @@ impl SendingController {
         wormhole: Wormhole,
     ) -> (BoxFuture<'static, Result<(), PortalError>>, Self) {
         let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
-        let (transit_sender, transit_info_promise) = Promise::<TransitInfo>::new();
+        let (transit_sender, transit_info_receiver) = oneshot::channel();
         let future = {
             let send_request = send_request.clone();
             async {
@@ -327,7 +327,7 @@ impl SendingController {
             }
         };
         let controller = SendingController {
-            transit_info_promise,
+            transit_info_receiver: transit_info_receiver.into(),
             progress_receiver,
         };
         (Box::pin(future), controller)
@@ -338,7 +338,7 @@ async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    transit_info_sender: poll_promise::Sender<TransitInfo>,
+    transit_info_sender: oneshot::Sender<TransitInfo>,
     ctx: Context,
 ) -> Result<(), PortalError> {
     let mut file = File::open(&path).await?;
@@ -357,7 +357,7 @@ async fn send_file(
         {
             let ctx = ctx.clone();
             move |transit_info, _| {
-                transit_info_sender.send(transit_info);
+                _ = transit_info_sender.send(transit_info);
                 ctx.request_repaint();
             }
         },
@@ -376,7 +376,7 @@ async fn send_folder(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    transit_info_sender: poll_promise::Sender<TransitInfo>,
+    transit_info_sender: oneshot::Sender<TransitInfo>,
     ctx: Context,
 ) -> Result<(), PortalError> {
     let relay_hint =
@@ -391,7 +391,7 @@ async fn send_folder(
         {
             let ctx = ctx.clone();
             move |transit_info, _| {
-                transit_info_sender.send(transit_info);
+                _ = transit_info_sender.send(transit_info);
                 ctx.request_repaint();
             }
         },

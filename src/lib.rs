@@ -16,6 +16,7 @@ mod egui_ext;
 mod error;
 mod receive;
 mod send;
+mod sync;
 mod tab_button;
 mod utils;
 mod view_switcher;

@@ -1,10 +1,11 @@
-use std::{
-    ffi::OsString,
-    future::{self},
-    path::PathBuf,
-};
+use std::{future, path::PathBuf};
 
-use crate::{error::PortalError, sync::BorrowingOneshotReceiver, update};
+use crate::{
+    error::PortalError,
+    fs::{sanitize_untrusted_file_path, save_with_conflict_resolution},
+    sync::BorrowingOneshotReceiver,
+    update,
+};
 use async_std::fs::File;
 use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
@@ -18,6 +19,7 @@ use magic_wormhole::{
 };
 use portal_proc_macro::states;
 use single_value_channel as svc;
+use tempfile::PersistError;
 
 use crate::egui_ext::ContextExt;
 
@@ -302,7 +304,7 @@ async fn accept(
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
 
-    let filename = receive_request.filename.clone();
+    let untrusted_filename = receive_request.filename.clone();
 
     receive_request
         .accept(
@@ -317,28 +319,24 @@ async fn accept(
         )
         .await?;
 
-    // TODO: re-attempt to save with added extension if file already exists
-    let mut file_stem = filename.file_stem().unwrap_or_default();
-    if file_stem.is_empty() {
-        file_stem = "Downloaded File".as_ref();
-    }
-    let mut extension = filename.extension().unwrap_or_default();
-    if extension.is_empty() {
-        extension = "bin".as_ref();
-    }
+    let mut temp_file = Some(temp_file);
+    let final_path = save_with_conflict_resolution(
+        dirs::download_dir().expect("Unable to detect downloads directory"),
+        sanitize_untrusted_file_path(
+            &untrusted_filename,
+            "Downloaded File".as_ref(),
+            "bin".as_ref(),
+        ),
+        move |path| match temp_file.take().unwrap().persist_noclobber(&path) {
+            Ok(_) => Ok(()),
+            Err(PersistError { error, file }) => {
+                temp_file = Some(file);
+                Err(error)
+            }
+        },
+    )?;
 
-    let mut download_path = dirs::download_dir().expect("Unable to detect downloads directory");
-
-    let mut filename = OsString::with_capacity(file_stem.len() + extension.len() + 1);
-    filename.push(file_stem);
-    filename.push(".");
-    filename.push(extension);
-    download_path.push(filename);
-    temp_file
-        .persist_noclobber(&download_path)
-        .map_err(|error| error.error)?;
-
-    Ok(download_path)
+    Ok(final_path)
 }
 
 async fn connect(code: Code) -> Result<ReceiveRequest, PortalError> {

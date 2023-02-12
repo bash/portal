@@ -14,6 +14,7 @@ use view_switcher::{view_switcher, ViewSwitcher};
 
 mod egui_ext;
 mod error;
+mod fs;
 mod receive;
 mod send;
 mod sync;

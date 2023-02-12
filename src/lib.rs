@@ -3,11 +3,8 @@
 #![feature(let_chains)]
 #![feature(concat_idents)]
 
-use eframe::{
-    egui::{self, Layout, RichText, Ui, WidgetText},
-    emath::Align,
-};
-use egui::Color32;
+use egui::emath::Align;
+use egui::{self, Color32, Layout, RichText};
 use receive::ReceiveView;
 use send::SendView;
 use widgets::{view_switcher, ViewSwitcher};
@@ -78,33 +75,6 @@ impl ViewSwitcher for PortalApp {
             View::Receive => self.receive_view.ui(ui),
         }
     }
-}
-
-fn page<'a>(
-    ui: &mut Ui,
-    title: impl Into<RichText>,
-    text: impl Into<WidgetText>,
-    icon: impl Into<Option<&'a str>>,
-) {
-    if let Some(icon) = icon.into() {
-        ui.label(RichText::new(icon).size(120.0));
-    }
-    ui.add_space(10.0);
-    ui.label(title.into().size(30.0).strong());
-    ui.add_space(10.0);
-    ui.label(text);
-}
-
-fn page_with_content<'a, T>(
-    ui: &mut Ui,
-    title: impl Into<RichText>,
-    text: impl Into<WidgetText>,
-    icon: impl Into<Option<&'a str>>,
-    add_contents: impl FnOnce(&mut Ui) -> T,
-) -> T {
-    page(ui, title, text, icon);
-    ui.add_space(20.0);
-    add_contents(ui)
 }
 
 #[macro_export]

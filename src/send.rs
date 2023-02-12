@@ -2,7 +2,7 @@ use crate::egui_ext::ContextExt;
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
 use crate::transmit_info::transit_info_message;
-use crate::widgets::{cancel_button, CancelLabel};
+use crate::widgets::{cancel_button, page, page_with_content, CancelLabel};
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
@@ -123,7 +123,7 @@ impl SendView {
     }
 
     fn show_file_selection_page(&mut self, ui: &mut Ui) {
-        crate::page_with_content(
+        page_with_content(
             ui,
             "Send File",
             "Select or drop the file or directory to send.",
@@ -155,7 +155,7 @@ impl SendView {
     }
 
     fn show_transmit_code_progress(&self, ui: &mut Ui) {
-        crate::page_with_content(
+        page_with_content(
             ui,
             "Send File",
             "Generating transmit code...",
@@ -167,7 +167,7 @@ impl SendView {
     }
 
     fn show_transmit_code(&self, ui: &mut Ui, welcome: &WormholeWelcome, file_path: &Path) {
-        crate::page_with_content(
+        page_with_content(
             ui,
             "Your Transmit Code",
             format!(
@@ -188,13 +188,13 @@ impl SendView {
 
     fn show_error_page(&mut self, ui: &mut Ui, error: String) {
         self.back_button(ui);
-        crate::page(ui, "File Transfer Failed", error, "❌");
+        page(ui, "File Transfer Failed", error, "❌");
     }
 
     fn show_transfer_completed_page(&mut self, ui: &mut Ui, send_request: SendRequest) {
         let filename = send_request.path().file_name().unwrap();
         self.back_button(ui);
-        crate::page(
+        page(
             ui,
             "File Transfer Successful",
             format!("Successfully sent file \"{}\"", filename.to_string_lossy()),
@@ -226,7 +226,7 @@ fn show_transfer_progress(
     let Progress { sent, total } = controller.progress();
     let filename = send_request.path().file_name().unwrap();
     match controller.transit_info() {
-        Some(transit_info) => crate::page_with_content(
+        Some(transit_info) => page_with_content(
             ui,
             "Sending File",
             transit_info_message(transit_info, filename),
@@ -235,7 +235,7 @@ fn show_transfer_progress(
                 ui.add(ProgressBar::new((sent as f64 / total as f64) as f32).animate(true));
             },
         ),
-        None => crate::page_with_content(
+        None => page_with_content(
             ui,
             "Connected to Peer",
             format!("Preparing to send file \"{}\"", filename.to_string_lossy()),

@@ -1,6 +1,6 @@
 use crate::egui_ext::ContextExt;
 use crate::transmit_info::transit_info_message;
-use crate::widgets::{cancel_button, CancelLabel};
+use crate::widgets::{cancel_button, page, page_with_content, CancelLabel};
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
@@ -108,7 +108,7 @@ impl ReceiveView {
                     controller.cancel();
                 }
 
-                crate::page_with_content(
+                page_with_content(
                     ui,
                     "Connecting with peer",
                     "Preparing to Receive File",
@@ -121,7 +121,7 @@ impl ReceiveView {
             ReceiveState::Error(error) => {
                 let error = error.to_string();
                 self.back_button(ui);
-                crate::page(ui, "File Transfer Failed", error, "❌");
+                page(ui, "File Transfer Failed", error, "❌");
             }
             ReceiveState::Connected(ref receive_request) => {
                 match show_connected_page(ui, receive_request) {
@@ -148,7 +148,7 @@ impl ReceiveView {
                 }
 
                 match controller.transit_info() {
-                    Some(transit_info) => crate::page_with_content(
+                    Some(transit_info) => page_with_content(
                         ui,
                         "Receiving File",
                         transit_info_message(transit_info, filename.as_os_str()),
@@ -160,7 +160,7 @@ impl ReceiveView {
                             );
                         },
                     ),
-                    None => crate::page_with_content(
+                    None => page_with_content(
                         ui,
                         "Connected to Peer",
                         format!("Preparing to receive file \"{}\"", filename.display()),
@@ -172,15 +172,9 @@ impl ReceiveView {
                 }
             }
             ReceiveState::Rejecting(_) => {
-                crate::page_with_content(
-                    ui,
-                    "Receive File",
-                    "Rejecting File Transfer",
-                    "📥",
-                    |ui| {
-                        ui.spinner();
-                    },
-                );
+                page_with_content(ui, "Receive File", "Rejecting File Transfer", "📥", |ui| {
+                    ui.spinner();
+                });
             }
             ReceiveState::Completed(downloaded_path) => {
                 let downloaded_path = downloaded_path.clone();
@@ -211,7 +205,7 @@ enum ReceivePageResponse {
 }
 
 fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageResponse> {
-    crate::page_with_content(
+    page_with_content(
         ui,
         "Receive File",
         "Enter the code from your peer below:",
@@ -249,7 +243,7 @@ fn show_connected_page(
     ui: &mut Ui,
     _receive_request: &ReceiveRequest,
 ) -> Option<ConnectedPageResponse> {
-    crate::page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
+    page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
         if ui.button("Reject").clicked() {
             return Some(ConnectedPageResponse::Reject);
         }

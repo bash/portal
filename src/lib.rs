@@ -10,7 +10,7 @@ use eframe::{
 use egui::Color32;
 use receive::ReceiveView;
 use send::SendView;
-use view_switcher::{view_switcher, ViewSwitcher};
+use widgets::{view_switcher, ViewSwitcher};
 
 mod egui_ext;
 mod error;
@@ -18,9 +18,7 @@ mod fs;
 mod receive;
 mod send;
 mod sync;
-mod tab_button;
 mod utils;
-mod view_switcher;
 mod widgets;
 
 #[derive(Default)]

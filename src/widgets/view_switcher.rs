@@ -1,7 +1,7 @@
 use eframe::egui::{Id, RichText, Ui};
 use egui::Style;
 
-use crate::tab_button::TabButton;
+use crate::widgets::TabButton;
 
 pub trait ViewSwitcher {
     type View;

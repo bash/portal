@@ -21,6 +21,7 @@ mod sync;
 mod tab_button;
 mod utils;
 mod view_switcher;
+mod widgets;
 
 #[derive(Default)]
 pub struct PortalApp {

@@ -1,4 +1,5 @@
 use crate::egui_ext::ContextExt;
+use crate::widgets::{cancel_button, CancelLabel};
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
@@ -10,7 +11,6 @@ use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
     epaint::Vec2,
 };
-use egui::{Key, Modifiers};
 use futures::future::{AbortHandle, AbortRegistration, Abortable, Aborted};
 use futures::{channel::oneshot, Future};
 use magic_wormhole::{
@@ -99,7 +99,9 @@ impl ReceiveView {
                 }
             },
             ReceiveState::Connecting(_, controller) => {
-                cancel_button(ui, || controller.cancel());
+                if cancel_button(ui, CancelLabel::Cancel) {
+                    controller.cancel();
+                }
 
                 crate::page_with_content(
                     ui,
@@ -113,12 +115,7 @@ impl ReceiveView {
             }
             ReceiveState::Error(error) => {
                 let error = error.to_string();
-                ui.horizontal(|ui| {
-                    if ui.button("Back").clicked() {
-                        self.state = ReceiveState::default();
-                    }
-                });
-
+                self.back_button(ui);
                 crate::page(ui, "File Transfer Failed", error, "❌");
             }
             ReceiveState::Connected(ref receive_request) => {
@@ -141,7 +138,9 @@ impl ReceiveView {
             ReceiveState::Receiving(_, ref mut controller) => {
                 let Progress { received, total } = *controller.progress();
 
-                cancel_button(ui, || controller.cancel());
+                if cancel_button(ui, CancelLabel::Cancel) {
+                    controller.cancel();
+                }
 
                 match controller.transit_info() {
                     Some(_transit_info) => {
@@ -177,11 +176,7 @@ impl ReceiveView {
             }
             ReceiveState::Completed(downloaded_path) => {
                 let downloaded_path = downloaded_path.clone();
-                ui.horizontal(|ui| {
-                    if ui.button("Back").clicked() {
-                        self.state = ReceiveState::default();
-                    }
-                });
+                self.back_button(ui);
                 ui.label("Completed");
 
                 if ui.button("Open File").clicked() {
@@ -194,13 +189,11 @@ impl ReceiveView {
             }
         }
     }
-}
 
-fn cancel_button(ui: &mut Ui, cancel: impl FnOnce()) {
-    if ui.horizontal(|ui| ui.button("Cancel").clicked()).inner
-        || ui.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
-    {
-        cancel();
+    fn back_button(&mut self, ui: &mut Ui) {
+        if cancel_button(ui, CancelLabel::Back) {
+            self.state = ReceiveState::default();
+        }
     }
 }
 

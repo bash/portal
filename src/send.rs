@@ -1,6 +1,7 @@
 use crate::egui_ext::ContextExt;
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
+use crate::widgets::{cancel_button, CancelLabel};
 use async_std::fs::File;
 use eframe::{
     egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
@@ -186,24 +187,13 @@ impl SendView {
     }
 
     fn show_error_page(&mut self, ui: &mut Ui, error: String) {
-        ui.horizontal(|ui| {
-            if ui.button("Back").clicked() {
-                *self = SendView::Ready();
-            }
-        });
-
+        self.back_button(ui);
         crate::page(ui, "File Transfer Failed", error, "❌");
     }
 
     fn show_transfer_completed_page(&mut self, ui: &mut Ui, send_request: SendRequest) {
         let filename = send_request.path().file_name().unwrap();
-
-        ui.horizontal(|ui| {
-            if ui.button("Back").clicked() {
-                *self = SendView::Ready();
-            }
-        });
-
+        self.back_button(ui);
         crate::page(
             ui,
             "File Transfer Successful",
@@ -218,6 +208,12 @@ impl SendView {
             .input(|input| input.raw.dropped_files.iter().find_map(|f| f.path.clone()));
         if let Some(file_path) = file_path {
             *self = SendView::new_connecting(ui, SendRequest::File(file_path))
+        }
+    }
+
+    fn back_button(&mut self, ui: &mut Ui) {
+        if cancel_button(ui, CancelLabel::Back) {
+            *self = SendView::default();
         }
     }
 }

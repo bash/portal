@@ -368,7 +368,6 @@ async fn send_file(
         future::pending(),
     )
     .await?;
-    println!("after transfer::send_file");
     Ok(())
 }
 

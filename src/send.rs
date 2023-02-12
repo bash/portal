@@ -46,10 +46,10 @@ states! {
         }
     }
 
-    async state Sending(transit_info: Promise<TransitInfo>, progress: svc::Receiver<Progress>, request: SendRequest) -> Result<(), PortalError> {
+    async state Sending(controller: SendingController, request: SendRequest) -> Result<(), PortalError> {
         new(wormhole: Wormhole, request: SendRequest) {
-            let (future, transit_info, progress) = send(ui.ctx().clone(), &request, wormhole);
-            (future, transit_info, progress, request)
+            let (future, controller) = SendingController::new(ui.ctx().clone(), &request, wormhole);
+            (future, controller, request)
         }
         next {
             Ok(_) => Complete(request),
@@ -62,7 +62,7 @@ states! {
     state Complete(request: SendRequest);
 }
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct Progress {
     sent: u64,
     total: u64,
@@ -103,8 +103,8 @@ impl SendView {
             SendView::Connected(_, ref welcome, ref send_request) => {
                 self.show_transmit_code(ui, welcome, send_request.path())
             }
-            SendView::Sending(_, ref transit_info, progress, send_request) => {
-                show_transfer_progress(ui, progress, transit_info, send_request)
+            SendView::Sending(_, ref mut controller, ref send_request) => {
+                show_transfer_progress(ui, controller, send_request)
             }
             SendView::Error(ref error) => self.show_error_page(ui, error.to_string()),
             SendView::Complete(ref send_request) => {
@@ -216,13 +216,12 @@ impl SendView {
 
 fn show_transfer_progress(
     ui: &mut Ui,
-    progress: &mut svc::Receiver<Progress>,
-    transit_info: &Promise<TransitInfo>,
+    controller: &mut SendingController,
     send_request: &SendRequest,
 ) {
-    let Progress { sent, total } = *progress.latest();
+    let Progress { sent, total } = controller.progress();
     let filename = send_request.path().file_name().unwrap();
-    match transit_info.ready() {
+    match controller.transit_info() {
         Some(transit_info) => crate::page_with_content(
             ui,
             "Sending File",
@@ -274,46 +273,63 @@ async fn connect() -> Result<
     Ok((welcome, Box::pin(async { Ok(future.await?) })))
 }
 
-// TODO: this function needs refactoring
-fn send(
-    ctx: Context,
-    send_request: &SendRequest,
-    wormhole: Wormhole,
-) -> (
-    BoxFuture<'static, Result<(), PortalError>>,
-    Promise<TransitInfo>,
-    svc::Receiver<Progress>,
-) {
-    let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
-    let (transit_sender, transit_info) = Promise::<TransitInfo>::new();
-    let future = {
-        let send_request = send_request.clone();
-        async {
-            match send_request {
-                SendRequest::File(file_path) => {
-                    send_file(
-                        wormhole,
-                        file_path.clone(),
-                        progress_updater,
-                        transit_sender,
-                        ctx,
-                    )
-                    .await
-                }
-                SendRequest::Folder(folder_path) => {
-                    send_folder(
-                        wormhole,
-                        folder_path.clone(),
-                        progress_updater,
-                        transit_sender,
-                        ctx,
-                    )
-                    .await
+pub struct SendingController {
+    transit_info_promise: Promise<TransitInfo>,
+    progress_receiver: svc::Receiver<Progress>,
+}
+
+impl SendingController {
+    fn transit_info(&self) -> Option<&TransitInfo> {
+        self.transit_info_promise.ready()
+    }
+
+    fn progress(&mut self) -> Progress {
+        *self.progress_receiver.latest()
+    }
+}
+
+impl SendingController {
+    // TODO: this function needs refactoring
+    fn new(
+        ctx: Context,
+        send_request: &SendRequest,
+        wormhole: Wormhole,
+    ) -> (BoxFuture<'static, Result<(), PortalError>>, Self) {
+        let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
+        let (transit_sender, transit_info_promise) = Promise::<TransitInfo>::new();
+        let future = {
+            let send_request = send_request.clone();
+            async {
+                match send_request {
+                    SendRequest::File(file_path) => {
+                        send_file(
+                            wormhole,
+                            file_path.clone(),
+                            progress_updater,
+                            transit_sender,
+                            ctx,
+                        )
+                        .await
+                    }
+                    SendRequest::Folder(folder_path) => {
+                        send_folder(
+                            wormhole,
+                            folder_path.clone(),
+                            progress_updater,
+                            transit_sender,
+                            ctx,
+                        )
+                        .await
+                    }
                 }
             }
-        }
-    };
-    (Box::pin(future), transit_info, progress_receiver)
+        };
+        let controller = SendingController {
+            transit_info_promise,
+            progress_receiver,
+        };
+        (Box::pin(future), controller)
+    }
 }
 
 async fn send_file(

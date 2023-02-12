@@ -1,5 +1,4 @@
-use std::{future, path::PathBuf};
-
+use crate::egui_ext::ContextExt;
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
@@ -19,8 +18,10 @@ use magic_wormhole::{
 };
 use portal_proc_macro::states;
 use single_value_channel as svc;
+use std::path::PathBuf;
 
-use crate::egui_ext::ContextExt;
+type ConnectResult = Result<Option<ReceiveRequest>, PortalError>;
+type ReceiveResult = Result<Option<PathBuf>, PortalError>;
 
 #[derive(Default)]
 pub struct ReceiveView {
@@ -44,10 +45,11 @@ states! {
 
     state Initial(code: String);
 
-    async state Connecting() -> Result<ReceiveRequest, PortalError> {
-        new(code: Code) { (connect(code),) }
+    async state Connecting(controller: ConnectingController) -> ConnectResult {
+        new(code: Code) { ConnectingController::new(code) }
         next {
-            Ok(receive_request) => Connected(receive_request),
+            Ok(Some(receive_request)) => Connected(receive_request),
+            Ok(None) => Default::default(),
             Err(error) => Error(error),
         }
     }
@@ -62,7 +64,7 @@ states! {
         }
     }
 
-    async state Receiving(controller: ReceivingController) -> Result<Option<PathBuf>, PortalError> {
+    async state Receiving(controller: ReceivingController) -> ReceiveResult {
         new(receive_request: ReceiveRequest) { ReceivingController::new(receive_request) }
         next {
             Ok(Some(path)) => Completed(path),
@@ -94,13 +96,16 @@ impl ReceiveView {
                     }
                 }
             },
-            ReceiveState::Connecting(_) => {
+            ReceiveState::Connecting(_, controller) => {
                 crate::page_with_content(
                     ui,
                     "Connecting with peer",
                     "Preparing to Receive File",
                     "📥",
                     |ui| {
+                        if ui.button("Cancel").clicked() {
+                            controller.cancel();
+                        }
                         ui.spinner();
                     },
                 );
@@ -262,9 +267,7 @@ struct ReceivingController {
 }
 
 impl ReceivingController {
-    fn new(
-        receive_request: ReceiveRequest,
-    ) -> (impl Future<Output = Result<Option<PathBuf>, PortalError>>, Self) {
+    fn new(receive_request: ReceiveRequest) -> (impl Future<Output = ReceiveResult>, Self) {
         let (transit_info_sender, transit_info_receiver) = ::oneshot::channel();
         let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
         let (cancel_sender, cancel_receiver) = oneshot::channel();
@@ -300,7 +303,7 @@ async fn accept(
     transit_info_sender: ::oneshot::Sender<TransitInfo>,
     progress_updater: svc::Updater<Progress>,
     cancel: oneshot::Receiver<()>,
-) -> Result<Option<PathBuf>, PortalError> {
+) -> ReceiveResult {
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
 
@@ -316,7 +319,10 @@ async fn accept(
                 _ = progress_updater.update(Progress { received, total });
             },
             &mut temp_file_async,
-            async { _ = cancel.await; canceled = true; },
+            async {
+                _ = cancel.await;
+                canceled = true;
+            },
         )
         .await?;
     if canceled {
@@ -338,19 +344,31 @@ async fn accept(
     Ok(Some(persisted_path))
 }
 
-async fn connect(code: Code) -> Result<ReceiveRequest, PortalError> {
+struct ConnectingController {
+    cancel_sender: Option<oneshot::Sender<()>>,
+}
+
+impl ConnectingController {
+    fn new(code: Code) -> (impl Future<Output = ConnectResult>, Self) {
+        let (cancel_sender, cancel_receiver) = oneshot::channel();
+        let cancel_future = async { _ = cancel_receiver.await };
+        let controller = ConnectingController {
+            cancel_sender: Some(cancel_sender),
+        };
+        (connect(code, cancel_future), controller)
+    }
+
+    fn cancel(&mut self) {
+        self.cancel_sender.take().map(|c| c.send(()));
+    }
+}
+
+async fn connect(code: Code, cancel: impl Future<Output = ()>) -> ConnectResult {
     let (_, wormhole) = Wormhole::connect_with_code(transfer::APP_CONFIG, code).await?;
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
             .unwrap();
-    let receive_request = transfer::request_file(
-        wormhole,
-        vec![relay_hint],
-        Abilities::ALL_ABILITIES,
-        future::pending(),
-    )
-    .await?
-    .unwrap();
-    // TODO: Support cancellation (handle None and pass a cancel future)
-    Ok(receive_request)
+    transfer::request_file(wormhole, vec![relay_hint], Abilities::ALL_ABILITIES, cancel)
+        .await
+        .map_err(Into::into)
 }

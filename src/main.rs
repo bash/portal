@@ -2,9 +2,10 @@ use eframe::egui::{self};
 use portal::PortalApp;
 
 // TODO: show version somewhere in UI
-// TODO: cancellation support
+// TODO: cancellation support for sending
 // TODO: distinguish primary and secondary buttons
 // TODO: Confirm exit while operation in progress
+// TODO: Cancellation support for uncancellable futures
 #[tokio::main]
 async fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).

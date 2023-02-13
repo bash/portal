@@ -1,9 +1,7 @@
 use crate::egui_ext::ContextExt;
 use crate::transmit_info::transit_info_message;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
-use eframe::{
-    egui::{Button, Key, Modifiers, ProgressBar, Ui},
-};
+use eframe::egui::{Button, Key, Modifiers, ProgressBar, Ui};
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
 use portal_wormhole::{Code, PortalError, Progress};

@@ -30,8 +30,11 @@ states! {
 
     state Initial(code: String);
 
-    async state Connecting(controller: ConnectingController) -> ConnectResult {
-        new(code: Code) { connect(code) }
+    async state Connecting(controller: ConnectingController, code: Code) -> ConnectResult {
+        new(code: Code) {
+            let (future, controller) = connect(code.clone());
+            (future, controller, code)
+        }
         next {
             Ok(receive_request) => Connected(receive_request),
             Err(PortalError::Canceled) => Default::default(),
@@ -55,7 +58,7 @@ states! {
             let ctx = ui.ctx().clone();
             let (future, controller) = receive_request.accept(move || ctx.request_repaint());
             (future, controller, filename)
-         }
+        }
         next {
             Ok(path) => Completed(path),
             Err(PortalError::Canceled) => Default::default(),
@@ -85,8 +88,8 @@ impl ReceiveView {
                     }
                 }
             }
-            ReceiveState::Connecting(_, controller) => {
-                show_connecting_page(ui, controller);
+            ReceiveState::Connecting(_, controller, code) => {
+                show_connecting_page(ui, controller, code);
             }
             ReceiveState::Error(error) => {
                 let error = error.to_string();
@@ -172,15 +175,15 @@ enum ConnectedPageResponse {
     Reject,
 }
 
-fn show_connecting_page(ui: &mut Ui, controller: &mut ConnectingController) {
+fn show_connecting_page(ui: &mut Ui, controller: &mut ConnectingController, code: &Code) {
     if cancel_button(ui, CancelLabel::Cancel) {
         controller.cancel();
     }
 
     page_with_content(
         ui,
-        "Connecting with peer",
-        "Preparing to Receive File",
+        "Receive File",
+        format!("Connecting with peer using transfer code \"{code}\""),
         "📥",
         |ui| {
             ui.spinner();
@@ -261,7 +264,10 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
     page_with_content(
         ui,
         "File Transfer Successful",
-        format!("File \"{}\" has been saved to your Downloads folder", filename.to_string_lossy()),
+        format!(
+            "File \"{}\" has been saved to your Downloads folder",
+            filename.to_string_lossy()
+        ),
         "✅",
         |ui| {
             if ui

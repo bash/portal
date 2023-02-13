@@ -11,3 +11,9 @@ mod sync;
 mod transit;
 
 pub trait RequestRepaint = FnMut() + Clone + Send + Sync + 'static;
+
+#[derive(Default, Copy, Clone)]
+pub struct Progress {
+    pub value: u64,
+    pub total: u64,
+}

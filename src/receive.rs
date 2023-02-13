@@ -9,9 +9,9 @@ use eframe::{
 use magic_wormhole::{transfer::ReceiveRequest, Code};
 use portal_proc_macro::states;
 use portal_wormhole::receive::{
-    ConnectResult, ConnectingController, ReceiveProgress, ReceiveResult, ReceivingController,
+    ConnectResult, ConnectingController, ReceiveResult, ReceivingController,
 };
-use portal_wormhole::PortalError;
+use portal_wormhole::{PortalError, Progress};
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
@@ -204,7 +204,10 @@ fn show_connected_page(
 }
 
 fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filename: &Path) {
-    let ReceiveProgress { received, total } = *controller.progress();
+    let Progress {
+        value: received,
+        total,
+    } = *controller.progress();
 
     if cancel_button(ui, CancelLabel::Cancel) {
         controller.cancel();

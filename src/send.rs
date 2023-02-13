@@ -10,8 +10,8 @@ use magic_wormhole::{transfer, Wormhole, WormholeWelcome};
 use portal_proc_macro::states;
 use rfd::FileDialog;
 
-use portal_wormhole::send::{ConnectResult, Progress, SendRequest, SendingController};
-use portal_wormhole::PortalError;
+use portal_wormhole::send::{ConnectResult, SendRequest, SendingController};
+use portal_wormhole::{PortalError, Progress};
 use std::path::Path;
 
 states! {
@@ -187,7 +187,7 @@ fn show_transfer_progress(
     controller: &mut SendingController,
     send_request: &SendRequest,
 ) {
-    let Progress { sent, total } = controller.progress();
+    let Progress { value: sent, total } = controller.progress();
     let filename = send_request.path().file_name().unwrap();
     match controller.transit_info() {
         Some(transit_info) => page_with_content(

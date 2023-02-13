@@ -1,7 +1,9 @@
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
-use crate::transit::{transit_handler, TransitHandler, RELAY_HINTS};
-use crate::RequestRepaint;
+use crate::transit::{
+    progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
+};
+use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
 use futures::future::BoxFuture;
 use magic_wormhole::{
@@ -22,12 +24,6 @@ pub type ConnectResult = Result<
     ),
     PortalError,
 >;
-
-#[derive(Default, Copy, Clone)]
-pub struct Progress {
-    pub sent: u64,
-    pub total: u64,
-}
 
 #[derive(Clone, Debug)]
 pub enum SendRequest {
@@ -69,6 +65,7 @@ impl SendingController {
         let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
         let (transit_sender, transit_info_receiver) = oneshot::channel();
         let transit_handler = transit_handler(transit_sender, request_repaint.clone());
+        let progress_handler = progress_handler(progress_updater, request_repaint);
         let future = {
             let send_request = send_request.clone();
             async {
@@ -77,9 +74,8 @@ impl SendingController {
                         send_file(
                             wormhole,
                             file_path.clone(),
-                            progress_updater,
+                            progress_handler,
                             transit_handler,
-                            request_repaint,
                         )
                         .await
                     }
@@ -87,9 +83,8 @@ impl SendingController {
                         send_folder(
                             wormhole,
                             folder_path.clone(),
-                            progress_updater,
+                            progress_handler,
                             transit_handler,
-                            request_repaint,
                         )
                         .await
                     }
@@ -107,9 +102,8 @@ impl SendingController {
 async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
-    progress: svc::Updater<Progress>,
+    progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
-    mut request_repaint: impl RequestRepaint,
 ) -> Result<(), PortalError> {
     let mut file = File::open(&path).await?;
     let metadata = file.metadata().await?;
@@ -122,10 +116,7 @@ async fn send_file(
         file_size,
         Abilities::ALL_ABILITIES,
         transit_handler,
-        move |sent, total| {
-            _ = progress.update(Progress { sent, total });
-            request_repaint();
-        },
+        progress_handler,
         future::pending(),
     )
     .await?;
@@ -135,9 +126,8 @@ async fn send_file(
 async fn send_folder(
     wormhole: Wormhole,
     path: PathBuf,
-    progress: svc::Updater<Progress>,
+    progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
-    mut request_repaint: impl RequestRepaint,
 ) -> Result<(), PortalError> {
     transfer::send_folder(
         wormhole,
@@ -146,10 +136,7 @@ async fn send_folder(
         path.file_name().unwrap(),
         Abilities::ALL_ABILITIES,
         transit_handler,
-        move |sent, total| {
-            _ = progress.update(Progress { sent, total });
-            request_repaint();
-        },
+        progress_handler,
         future::pending(),
     )
     .await?;

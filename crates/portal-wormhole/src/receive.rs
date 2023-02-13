@@ -1,10 +1,10 @@
 use crate::transit::{transit_handler, TransitHandler, RELAY_HINTS};
-use crate::RequestRepaint;
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
     sync::BorrowingOneshotReceiver,
 };
+use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
 use futures::future::{AbortHandle, AbortRegistration, Abortable};
 use futures::{channel::oneshot, Future};
@@ -19,15 +19,9 @@ use std::path::PathBuf;
 pub type ConnectResult = Result<ReceiveRequest, PortalError>;
 pub type ReceiveResult = Result<PathBuf, PortalError>;
 
-#[derive(Default, Copy, Clone)]
-pub struct ReceiveProgress {
-    pub received: u64,
-    pub total: u64,
-}
-
 pub struct ReceivingController {
     transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
-    progress: svc::Receiver<ReceiveProgress>,
+    progress: svc::Receiver<Progress>,
     cancel_sender: Option<oneshot::Sender<()>>,
 }
 
@@ -37,7 +31,7 @@ impl ReceivingController {
         request_repaint: impl RequestRepaint,
     ) -> (impl Future<Output = ReceiveResult>, Self) {
         let (transit_info_sender, transit_info_receiver) = ::oneshot::channel();
-        let (progress, progress_updater) = svc::channel_starting_with(ReceiveProgress::default());
+        let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
         let (cancel_sender, cancel_receiver) = oneshot::channel();
         let controller = ReceivingController {
             transit_info_receiver: transit_info_receiver.into(),
@@ -57,7 +51,7 @@ impl ReceivingController {
         self.transit_info_receiver.value()
     }
 
-    pub fn progress(&mut self) -> &ReceiveProgress {
+    pub fn progress(&mut self) -> &Progress {
         self.progress.latest()
     }
 
@@ -69,7 +63,7 @@ impl ReceivingController {
 async fn accept(
     receive_request: ReceiveRequest,
     transit_handler: impl TransitHandler,
-    progress_updater: svc::Updater<ReceiveProgress>,
+    progress_updater: svc::Updater<Progress>,
     cancel: oneshot::Receiver<()>,
 ) -> ReceiveResult {
     let temp_file = tempfile::NamedTempFile::new()?;
@@ -81,8 +75,8 @@ async fn accept(
     receive_request
         .accept(
             transit_handler,
-            move |received, total| {
-                _ = progress_updater.update(ReceiveProgress { received, total });
+            move |value, total| {
+                _ = progress_updater.update(Progress { value, total });
             },
             &mut temp_file_async,
             async {

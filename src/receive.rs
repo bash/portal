@@ -297,18 +297,15 @@ impl fmt::Display for ByteDisplay {
             let k = 10u64.saturating_pow(p as u32) as f64;
             write!(
                 f,
-                "{:0width$}.{:0p$.0}{nbsp}{}",
+                "{:0width$}.{:0p$.0}{NO_BREAK_SPACE}{}",
                 whole,
                 rem * k,
                 suffix,
-                p = p,
-                width = width,
-                nbsp = NO_BREAK_SPACE,
             )
         } else if rem > 0.5f64 {
             ((whole.bytes() + 1) * unit).fmt(f)
         } else {
-            write!(f, "{:0width$}{nbsp}{}", whole, suffix, width = width, nbsp = NO_BREAK_SPACE)
+            write!(f, "{whole:0width$}{NO_BREAK_SPACE}{suffix}")
         }
     }
 }

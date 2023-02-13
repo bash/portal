@@ -3,7 +3,7 @@ use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
 use futures::channel::oneshot;
-use futures::future::BoxFuture;
+use futures::future::{AbortHandle, AbortRegistration, Abortable, BoxFuture};
 use futures::Future;
 use magic_wormhole::Code;
 use magic_wormhole::{
@@ -40,16 +40,19 @@ pub fn send(
     let (progress_receiver, progress_updater) =
         svc::channel_starting_with(SendingProgress::Connecting);
     let (cancel_sender, cancel_receiver) = oneshot::channel();
+    let (abort_handle, abort_registration) = AbortHandle::new_pair();
 
     let controller = SendingController {
         progress_receiver,
         cancel_sender: Some(cancel_sender),
+        abort_handle,
     };
 
     let future = send_impl(
         send_request,
         report(progress_updater, request_repaint),
         async { _ = cancel_receiver.await },
+        abort_registration,
     );
 
     (future, controller)
@@ -59,14 +62,21 @@ async fn send_impl(
     send_request: SendRequest,
     mut report: impl Reporter,
     cancel: impl Future<Output = ()>,
+    abort_registration: AbortRegistration,
 ) -> Result<(), PortalError> {
     let (transit_info_receiver, transit_info_updater) = svc::channel();
 
-    let (welcome, wormhole_future) = connect().await?;
-    report(SendingProgress::Connected(welcome.code));
+    let wormhole = async {
+        let (welcome, wormhole_future) = connect().await?;
+        report(SendingProgress::Connected(welcome.code));
 
-    let wormhole = wormhole_future.await?;
-    report(SendingProgress::PreparingToSend);
+        let wormhole = wormhole_future.await?;
+        report(SendingProgress::PreparingToSend);
+
+        Result::<_, PortalError>::Ok(wormhole)
+    };
+
+    let wormhole = Abortable::new(wormhole, abort_registration).await??;
 
     match send_request {
         SendRequest::File(file_path) => {
@@ -131,6 +141,7 @@ fn progress_handler(
 pub struct SendingController {
     progress_receiver: svc::Receiver<SendingProgress>,
     cancel_sender: Option<oneshot::Sender<()>>,
+    abort_handle: AbortHandle,
 }
 
 pub enum SendingProgress {
@@ -146,6 +157,7 @@ impl SendingController {
     }
 
     pub fn cancel(&mut self) {
+        self.abort_handle.abort();
         self.cancel_sender.take().map(|c| c.send(()));
     }
 }

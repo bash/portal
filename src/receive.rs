@@ -52,7 +52,8 @@ states! {
     async state Receiving(controller: ReceivingController, filename: PathBuf) -> ReceiveResult {
         new(receive_request: ReceiveRequest) {
             let filename = receive_request.filename.clone();
-            let (future, controller) = ReceivingController::new(receive_request);
+            let ctx = ui.ctx().clone();
+            let (future, controller) = ReceivingController::new(receive_request, move || ctx.request_repaint());
             (future, controller, filename)
          }
         next {

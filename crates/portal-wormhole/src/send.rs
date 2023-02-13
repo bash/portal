@@ -1,6 +1,6 @@
-use crate::defaults::RELAY_HINTS;
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
+use crate::transit::{transit_handler, RELAY_HINTS};
 use crate::RequestRepaint;
 use async_std::fs::File;
 use futures::future::BoxFuture;
@@ -120,13 +120,7 @@ async fn send_file(
         path.file_name().unwrap(),
         file_size,
         Abilities::ALL_ABILITIES,
-        {
-            let mut request_repaint = request_repaint.clone();
-            move |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
-                request_repaint();
-            }
-        },
+        transit_handler(transit_info_sender, request_repaint.clone()),
         move |sent, total| {
             _ = progress.update(Progress { sent, total });
             request_repaint();
@@ -150,13 +144,7 @@ async fn send_folder(
         &path,
         path.file_name().unwrap(),
         Abilities::ALL_ABILITIES,
-        {
-            let mut request_repaint = request_repaint.clone();
-            move |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
-                request_repaint();
-            }
-        },
+        transit_handler(transit_info_sender, request_repaint.clone()),
         move |sent, total| {
             _ = progress.update(Progress { sent, total });
             request_repaint();

@@ -1,4 +1,5 @@
-use crate::defaults::RELAY_HINTS;
+use crate::transit::{transit_handler, RELAY_HINTS};
+use crate::RequestRepaint;
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
@@ -31,7 +32,10 @@ pub struct ReceivingController {
 }
 
 impl ReceivingController {
-    pub fn new(receive_request: ReceiveRequest) -> (impl Future<Output = ReceiveResult>, Self) {
+    pub fn new(
+        receive_request: ReceiveRequest,
+        request_repaint: impl RequestRepaint,
+    ) -> (impl Future<Output = ReceiveResult>, Self) {
         let (transit_info_sender, transit_info_receiver) = ::oneshot::channel();
         let (progress, progress_updater) = svc::channel_starting_with(ReceiveProgress::default());
         let (cancel_sender, cancel_receiver) = oneshot::channel();
@@ -45,6 +49,7 @@ impl ReceivingController {
             transit_info_sender,
             progress_updater,
             cancel_receiver,
+            request_repaint,
         );
         (future, controller)
     }
@@ -67,6 +72,7 @@ async fn accept(
     transit_info_sender: ::oneshot::Sender<TransitInfo>,
     progress_updater: svc::Updater<ReceiveProgress>,
     cancel: oneshot::Receiver<()>,
+    request_repaint: impl RequestRepaint,
 ) -> ReceiveResult {
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
@@ -76,9 +82,7 @@ async fn accept(
     let mut canceled = false;
     receive_request
         .accept(
-            |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
-            },
+            transit_handler(transit_info_sender, request_repaint),
             move |received, total| {
                 _ = progress_updater.update(ReceiveProgress { received, total });
             },

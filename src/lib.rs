@@ -9,11 +9,8 @@ use send::SendView;
 use widgets::{view_switcher, ViewSwitcher};
 
 mod egui_ext;
-mod error;
-mod fs;
 mod receive;
 mod send;
-mod sync;
 mod transmit_info;
 mod utils;
 mod widgets;

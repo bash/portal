@@ -2545,22 +2545,17 @@ dependencies = [
 name = "portal"
 version = "0.1.0"
 dependencies = [
- "async-std",
- "dirs",
  "eframe",
  "egui",
  "embed-resource",
  "futures",
  "magic-wormhole",
- "oneshot",
  "opener",
  "poll-promise",
  "portal-proc-macro",
+ "portal-wormhole",
  "rfd",
- "single_value_channel",
  "take_mut",
- "tempfile",
- "thiserror",
  "tokio",
  "tracing-subscriber",
 ]
@@ -2573,6 +2568,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "portal-wormhole"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "dirs",
+ "futures",
+ "magic-wormhole",
+ "oneshot",
+ "poll-promise",
+ "single_value_channel",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]

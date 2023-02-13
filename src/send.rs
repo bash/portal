@@ -1,34 +1,18 @@
 use crate::egui_ext::ContextExt;
-use crate::error::PortalError;
-use crate::sync::BorrowingOneshotReceiver;
 use crate::transmit_info::transit_info_message;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel};
-use async_std::fs::File;
 use eframe::{
-    egui::{Button, Context, Key, Modifiers, ProgressBar, Ui},
+    egui::{Button, Key, Modifiers, ProgressBar, Ui},
     epaint::Vec2,
 };
 use futures::future::BoxFuture;
-use magic_wormhole::{
-    transfer::{self},
-    transit::{self, Abilities, TransitInfo},
-    Wormhole, WormholeWelcome,
-};
+use magic_wormhole::{transfer ,Wormhole, WormholeWelcome};
 use portal_proc_macro::states;
 use rfd::FileDialog;
-use single_value_channel as svc;
-use std::{
-    future,
-    path::{Path, PathBuf},
-};
 
-type ConnectResult = Result<
-    (
-        WormholeWelcome,
-        BoxFuture<'static, Result<Wormhole, PortalError>>,
-    ),
-    PortalError,
->;
+use portal_wormhole::send::{ConnectResult, Progress, SendRequest, SendingController};
+use portal_wormhole::PortalError;
+use std::path::Path;
 
 states! {
     pub enum SendView;
@@ -57,7 +41,8 @@ states! {
 
     async state Sending(controller: SendingController, request: SendRequest) -> Result<(), PortalError> {
         new(wormhole: Wormhole, request: SendRequest) {
-            let (future, controller) = SendingController::new(ui.ctx().clone(), &request, wormhole);
+            let ctx = ui.ctx().clone();
+            let (future, controller) = SendingController::new(&request, wormhole, move || ctx.request_repaint());
             (future, controller, request)
         }
         next {
@@ -69,27 +54,6 @@ states! {
     state Error(error: PortalError);
 
     state Complete(request: SendRequest);
-}
-
-#[derive(Default, Copy, Clone)]
-pub struct Progress {
-    sent: u64,
-    total: u64,
-}
-
-#[derive(Clone, Debug)]
-pub enum SendRequest {
-    File(PathBuf),
-    Folder(PathBuf),
-}
-
-impl SendRequest {
-    fn path(&self) -> &Path {
-        match self {
-            SendRequest::File(path) => path,
-            SendRequest::Folder(path) => path,
-        }
-    }
 }
 
 impl Default for SendView {
@@ -250,133 +214,4 @@ fn show_transfer_progress(
 async fn connect() -> ConnectResult {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
     Ok((welcome, Box::pin(async { Ok(future.await?) })))
-}
-
-pub struct SendingController {
-    transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
-    progress_receiver: svc::Receiver<Progress>,
-}
-
-impl SendingController {
-    fn transit_info(&mut self) -> Option<&TransitInfo> {
-        self.transit_info_receiver.value()
-    }
-
-    fn progress(&mut self) -> Progress {
-        *self.progress_receiver.latest()
-    }
-}
-
-impl SendingController {
-    // TODO: this function needs refactoring
-    fn new(
-        ctx: Context,
-        send_request: &SendRequest,
-        wormhole: Wormhole,
-    ) -> (BoxFuture<'static, Result<(), PortalError>>, Self) {
-        let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
-        let (transit_sender, transit_info_receiver) = oneshot::channel();
-        let future = {
-            let send_request = send_request.clone();
-            async {
-                match send_request {
-                    SendRequest::File(file_path) => {
-                        send_file(
-                            wormhole,
-                            file_path.clone(),
-                            progress_updater,
-                            transit_sender,
-                            ctx,
-                        )
-                        .await
-                    }
-                    SendRequest::Folder(folder_path) => {
-                        send_folder(
-                            wormhole,
-                            folder_path.clone(),
-                            progress_updater,
-                            transit_sender,
-                            ctx,
-                        )
-                        .await
-                    }
-                }
-            }
-        };
-        let controller = SendingController {
-            transit_info_receiver: transit_info_receiver.into(),
-            progress_receiver,
-        };
-        (Box::pin(future), controller)
-    }
-}
-
-async fn send_file(
-    wormhole: Wormhole,
-    path: PathBuf,
-    progress: svc::Updater<Progress>,
-    transit_info_sender: oneshot::Sender<TransitInfo>,
-    ctx: Context,
-) -> Result<(), PortalError> {
-    let mut file = File::open(&path).await?;
-    let metadata = file.metadata().await?;
-    let file_size = metadata.len();
-    let relay_hint =
-        transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
-            .unwrap();
-    transfer::send_file(
-        wormhole,
-        vec![relay_hint],
-        &mut file,
-        path.file_name().unwrap(),
-        file_size,
-        Abilities::ALL_ABILITIES,
-        {
-            let ctx = ctx.clone();
-            move |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
-                ctx.request_repaint();
-            }
-        },
-        move |sent, total| {
-            _ = progress.update(Progress { sent, total });
-            ctx.request_repaint()
-        },
-        future::pending(),
-    )
-    .await?;
-    Ok(())
-}
-
-async fn send_folder(
-    wormhole: Wormhole,
-    path: PathBuf,
-    progress: svc::Updater<Progress>,
-    transit_info_sender: oneshot::Sender<TransitInfo>,
-    ctx: Context,
-) -> Result<(), PortalError> {
-    let relay_hint =
-        transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
-            .unwrap();
-    transfer::send_folder(
-        wormhole,
-        vec![relay_hint],
-        &path,
-        path.file_name().unwrap(),
-        Abilities::ALL_ABILITIES,
-        {
-            let ctx = ctx.clone();
-            move |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
-                ctx.request_repaint();
-            }
-        },
-        move |sent, total| {
-            _ = progress.update(Progress { sent, total });
-            ctx.request_repaint()
-        },
-        future::pending(),
-    )
-    .await?;
-    Ok(())
 }

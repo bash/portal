@@ -1,40 +1,22 @@
 use crate::egui_ext::ContextExt;
 use crate::transmit_info::transit_info_message;
+use crate::update;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel};
-use crate::{
-    error::PortalError,
-    fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
-    sync::BorrowingOneshotReceiver,
-    update,
-};
-use async_std::fs::File;
 use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
     epaint::Vec2,
 };
-use futures::future::{AbortHandle, AbortRegistration, Abortable, Aborted};
-use futures::{channel::oneshot, Future};
-use magic_wormhole::{
-    transfer::{self, ReceiveRequest},
-    transit::{self, Abilities, TransitInfo},
-    Code, Wormhole,
-};
+use magic_wormhole::{transfer::ReceiveRequest, Code};
 use portal_proc_macro::states;
-use single_value_channel as svc;
+use portal_wormhole::receive::{
+    ConnectResult, ConnectingController, ReceiveProgress, ReceiveResult, ReceivingController,
+};
+use portal_wormhole::PortalError;
 use std::path::{Path, PathBuf};
-
-type ConnectResult = Result<Option<ReceiveRequest>, PortalError>;
-type ReceiveResult = Result<Option<PathBuf>, PortalError>;
 
 #[derive(Default)]
 pub struct ReceiveView {
     state: ReceiveState,
-}
-
-#[derive(Default, Copy, Clone)]
-struct Progress {
-    received: u64,
-    total: u64,
 }
 
 impl Default for ReceiveState {
@@ -221,7 +203,7 @@ fn show_connected_page(
 }
 
 fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filename: &Path) {
-    let Progress { received, total } = *controller.progress();
+    let ReceiveProgress { received, total } = *controller.progress();
 
     if cancel_button(ui, CancelLabel::Cancel) {
         controller.cancel();
@@ -274,134 +256,4 @@ enum CompletedPageResponse {
 
 async fn reject(receive_request: ReceiveRequest) -> Result<(), PortalError> {
     receive_request.reject().await.map_err(Into::into)
-}
-
-struct ReceivingController {
-    transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
-    progress: svc::Receiver<Progress>,
-    cancel_sender: Option<oneshot::Sender<()>>,
-}
-
-impl ReceivingController {
-    fn new(receive_request: ReceiveRequest) -> (impl Future<Output = ReceiveResult>, Self) {
-        let (transit_info_sender, transit_info_receiver) = ::oneshot::channel();
-        let (progress, progress_updater) = svc::channel_starting_with(Progress::default());
-        let (cancel_sender, cancel_receiver) = oneshot::channel();
-        let controller = ReceivingController {
-            transit_info_receiver: transit_info_receiver.into(),
-            progress,
-            cancel_sender: Some(cancel_sender),
-        };
-        let future = accept(
-            receive_request,
-            transit_info_sender,
-            progress_updater,
-            cancel_receiver,
-        );
-        (future, controller)
-    }
-
-    fn transit_info(&mut self) -> Option<&TransitInfo> {
-        self.transit_info_receiver.value()
-    }
-
-    fn progress(&mut self) -> &Progress {
-        self.progress.latest()
-    }
-
-    fn cancel(&mut self) {
-        self.cancel_sender.take().map(|c| c.send(()));
-    }
-}
-
-async fn accept(
-    receive_request: ReceiveRequest,
-    transit_info_sender: ::oneshot::Sender<TransitInfo>,
-    progress_updater: svc::Updater<Progress>,
-    cancel: oneshot::Receiver<()>,
-) -> ReceiveResult {
-    let temp_file = tempfile::NamedTempFile::new()?;
-    let mut temp_file_async = File::from(temp_file.reopen()?);
-
-    let untrusted_filename = receive_request.filename.clone();
-
-    let mut canceled = false;
-    receive_request
-        .accept(
-            |transit_info, _| {
-                _ = transit_info_sender.send(transit_info);
-            },
-            move |received, total| {
-                _ = progress_updater.update(Progress { received, total });
-            },
-            &mut temp_file_async,
-            async {
-                _ = cancel.await;
-                canceled = true;
-            },
-        )
-        .await?;
-    if canceled {
-        return Ok(None);
-    }
-
-    let file_name = sanitize_untrusted_filename(
-        &untrusted_filename,
-        "Downloaded File".as_ref(),
-        "bin".as_ref(),
-    );
-    let persisted_path = persist_with_conflict_resolution(
-        temp_file,
-        dirs::download_dir().expect("Unable to detect downloads directory"),
-        file_name,
-        persist_temp_file,
-    )?;
-
-    Ok(Some(persisted_path))
-}
-
-struct ConnectingController {
-    wormhole_abort_handle: AbortHandle,
-    cancel_sender: Option<oneshot::Sender<()>>,
-}
-
-impl ConnectingController {
-    fn new(code: Code) -> (impl Future<Output = ConnectResult>, Self) {
-        let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
-        let (cancel_sender, cancel_receiver) = oneshot::channel();
-        let cancel_future = async { _ = cancel_receiver.await };
-        let controller = ConnectingController {
-            cancel_sender: Some(cancel_sender),
-            wormhole_abort_handle,
-        };
-        (connect(code, abort_registration, cancel_future), controller)
-    }
-
-    fn cancel(&mut self) {
-        self.cancel_sender.take().map(|c| c.send(()));
-        self.wormhole_abort_handle.abort();
-    }
-}
-
-async fn connect(
-    code: Code,
-    abort_registration: AbortRegistration,
-    cancel: impl Future<Output = ()>,
-) -> ConnectResult {
-    let (_, wormhole) = match Abortable::new(
-        Wormhole::connect_with_code(transfer::APP_CONFIG, code),
-        abort_registration,
-    )
-    .await
-    {
-        Ok(result) => result?,
-        Err(Aborted) => return Ok(None),
-    };
-
-    let relay_hint =
-        transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
-            .unwrap();
-    transfer::request_file(wormhole, vec![relay_hint], Abilities::ALL_ABILITIES, cancel)
-        .await
-        .map_err(Into::into)
 }

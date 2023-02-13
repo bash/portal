@@ -195,6 +195,10 @@ fn show_connected_page(
     ui: &mut Ui,
     receive_request: &ReceiveRequestController,
 ) -> Option<ConnectedPageResponse> {
+    if cancel_button(ui, CancelLabel::Cancel) {
+        return Some(ConnectedPageResponse::Reject);
+    }
+
     let text = format!(
         "Your peer wants to send you \"{}\" (Size: {}). Do you want to download this file?",
         receive_request.filename().display(),
@@ -202,15 +206,6 @@ fn show_connected_page(
     );
 
     page_with_content(ui, "Receive File", text, "📥", |ui| {
-        if ui
-            .add(Button::new("Reject").min_size(MIN_BUTTON_SIZE))
-            .clicked()
-        {
-            return Some(ConnectedPageResponse::Reject);
-        }
-
-        ui.add_space(5.0);
-
         if ui
             .add(Button::new("Accept").min_size(MIN_BUTTON_SIZE))
             .clicked()

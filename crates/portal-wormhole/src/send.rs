@@ -58,6 +58,30 @@ pub fn send(
     (future, controller)
 }
 
+pub struct SendingController {
+    progress_receiver: svc::Receiver<SendingProgress>,
+    cancel_sender: Option<oneshot::Sender<()>>,
+    abort_handle: AbortHandle,
+}
+
+pub enum SendingProgress {
+    Connecting,
+    Connected(Code),
+    PreparingToSend,
+    Sending(Arc<TransitInfo>, Progress),
+}
+
+impl SendingController {
+    pub fn progress(&mut self) -> &SendingProgress {
+        self.progress_receiver.latest()
+    }
+
+    pub fn cancel(&mut self) {
+        self.abort_handle.abort();
+        self.cancel_sender.take().map(|c| c.send(()));
+    }
+}
+
 async fn send_impl(
     send_request: SendRequest,
     mut report: impl Reporter,
@@ -135,30 +159,6 @@ fn progress_handler(
             transit_info,
             Progress { value, total },
         ))
-    }
-}
-
-pub struct SendingController {
-    progress_receiver: svc::Receiver<SendingProgress>,
-    cancel_sender: Option<oneshot::Sender<()>>,
-    abort_handle: AbortHandle,
-}
-
-pub enum SendingProgress {
-    Connecting,
-    Connected(Code),
-    PreparingToSend,
-    Sending(Arc<TransitInfo>, Progress),
-}
-
-impl SendingController {
-    pub fn progress(&mut self) -> &SendingProgress {
-        self.progress_receiver.latest()
-    }
-
-    pub fn cancel(&mut self) {
-        self.abort_handle.abort();
-        self.cancel_sender.take().map(|c| c.send(()));
     }
 }
 

@@ -33,8 +33,8 @@ states! {
     async state Connecting(controller: ConnectingController) -> ConnectResult {
         new(code: Code) { ConnectingController::new(code) }
         next {
-            Ok(Some(receive_request)) => Connected(receive_request),
-            Ok(None) => Default::default(),
+            Ok(receive_request) => Connected(receive_request),
+            Err(PortalError::Canceled) => Default::default(),
             Err(error) => Error(error),
         }
     }
@@ -56,8 +56,8 @@ states! {
             (future, controller, filename)
          }
         next {
-            Ok(Some(path)) => Completed(path),
-            Ok(None) => Default::default(),
+            Ok(path) => Completed(path),
+            Err(PortalError::Canceled) => Default::default(),
             Err(error) => Error(error),
         }
     }

@@ -1,3 +1,4 @@
+use futures::stream::Aborted;
 use magic_wormhole::transfer::TransferError;
 use magic_wormhole::WormholeError;
 use thiserror::Error;
@@ -12,6 +13,8 @@ pub enum PortalError {
     TransferRejected(TransferError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("The operation has been canceled")]
+    Canceled,
 }
 
 const TRANSFER_REJECTED_MESSAGE: &str = "transfer rejected";
@@ -24,5 +27,11 @@ impl From<TransferError> for PortalError {
         else {
             PortalError::WormholeTransfer(value)
         }
+    }
+}
+
+impl From<Aborted> for PortalError {
+    fn from(_: Aborted) -> Self {
+        PortalError::Canceled
     }
 }

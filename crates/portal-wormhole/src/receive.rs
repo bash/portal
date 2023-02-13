@@ -4,7 +4,7 @@ use crate::{
     sync::BorrowingOneshotReceiver,
 };
 use async_std::fs::File;
-use futures::future::{AbortHandle, AbortRegistration, Abortable, Aborted};
+use futures::future::{AbortHandle, AbortRegistration, Abortable};
 use futures::{channel::oneshot, Future};
 use magic_wormhole::{
     transfer::{self, ReceiveRequest},
@@ -14,8 +14,8 @@ use magic_wormhole::{
 use single_value_channel as svc;
 use std::path::PathBuf;
 
-pub type ConnectResult = Result<Option<ReceiveRequest>, PortalError>;
-pub type ReceiveResult = Result<Option<PathBuf>, PortalError>;
+pub type ConnectResult = Result<ReceiveRequest, PortalError>;
+pub type ReceiveResult = Result<PathBuf, PortalError>;
 
 #[derive(Default, Copy, Clone)]
 pub struct ReceiveProgress {
@@ -89,7 +89,7 @@ async fn accept(
         )
         .await?;
     if canceled {
-        return Ok(None);
+        return Err(PortalError::Canceled);
     }
 
     let file_name = sanitize_untrusted_filename(
@@ -104,7 +104,7 @@ async fn accept(
         persist_temp_file,
     )?;
 
-    Ok(Some(persisted_path))
+    Ok(persisted_path)
 }
 
 pub struct ConnectingController {
@@ -135,20 +135,16 @@ async fn connect(
     abort_registration: AbortRegistration,
     cancel: impl Future<Output = ()>,
 ) -> ConnectResult {
-    let (_, wormhole) = match Abortable::new(
+    let (_, wormhole) = Abortable::new(
         Wormhole::connect_with_code(transfer::APP_CONFIG, code),
         abort_registration,
     )
-    .await
-    {
-        Ok(result) => result?,
-        Err(Aborted) => return Ok(None),
-    };
+    .await??;
 
     let relay_hint =
         transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
             .unwrap();
     transfer::request_file(wormhole, vec![relay_hint], Abilities::ALL_ABILITIES, cancel)
-        .await
-        .map_err(Into::into)
+        .await?
+        .ok_or(PortalError::Canceled)
 }

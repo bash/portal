@@ -6,7 +6,7 @@ use eframe::{
     epaint::Vec2,
 };
 use futures::future::BoxFuture;
-use magic_wormhole::{transfer ,Wormhole, WormholeWelcome};
+use magic_wormhole::{transfer, Wormhole, WormholeWelcome};
 use portal_proc_macro::states;
 use rfd::FileDialog;
 

@@ -1,4 +1,4 @@
-use magic_wormhole::transit::TransitInfo;
+use portal_wormhole::TransitInfo;
 use std::ffi::OsStr;
 use std::fmt;
 

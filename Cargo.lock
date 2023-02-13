@@ -2549,7 +2549,6 @@ dependencies = [
  "egui",
  "embed-resource",
  "futures",
- "magic-wormhole",
  "opener",
  "poll-promise",
  "portal-proc-macro",

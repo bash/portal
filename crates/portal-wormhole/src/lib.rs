@@ -10,7 +10,7 @@ pub mod send;
 mod sync;
 mod transit;
 
-pub use magic_wormhole::Code;
+pub use magic_wormhole::{Code, transit::TransitInfo};
 
 pub trait RequestRepaint = FnMut() + Clone + Send + Sync + 'static;
 

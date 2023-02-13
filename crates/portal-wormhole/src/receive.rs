@@ -1,4 +1,4 @@
-use crate::transit::{transit_handler, RELAY_HINTS};
+use crate::transit::{transit_handler, TransitHandler, RELAY_HINTS};
 use crate::RequestRepaint;
 use crate::{
     error::PortalError,
@@ -46,10 +46,9 @@ impl ReceivingController {
         };
         let future = accept(
             receive_request,
-            transit_info_sender,
+            transit_handler(transit_info_sender, request_repaint),
             progress_updater,
             cancel_receiver,
-            request_repaint,
         );
         (future, controller)
     }
@@ -69,10 +68,9 @@ impl ReceivingController {
 
 async fn accept(
     receive_request: ReceiveRequest,
-    transit_info_sender: ::oneshot::Sender<TransitInfo>,
+    transit_handler: impl TransitHandler,
     progress_updater: svc::Updater<ReceiveProgress>,
     cancel: oneshot::Receiver<()>,
-    request_repaint: impl RequestRepaint,
 ) -> ReceiveResult {
     let temp_file = tempfile::NamedTempFile::new()?;
     let mut temp_file_async = File::from(temp_file.reopen()?);
@@ -82,7 +80,7 @@ async fn accept(
     let mut canceled = false;
     receive_request
         .accept(
-            transit_handler(transit_info_sender, request_repaint),
+            transit_handler,
             move |received, total| {
                 _ = progress_updater.update(ReceiveProgress { received, total });
             },

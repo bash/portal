@@ -1,6 +1,6 @@
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
-use crate::transit::{transit_handler, RELAY_HINTS};
+use crate::transit::{transit_handler, TransitHandler, RELAY_HINTS};
 use crate::RequestRepaint;
 use async_std::fs::File;
 use futures::future::BoxFuture;
@@ -68,6 +68,7 @@ impl SendingController {
     ) -> (BoxFuture<'static, Result<(), PortalError>>, Self) {
         let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
         let (transit_sender, transit_info_receiver) = oneshot::channel();
+        let transit_handler = transit_handler(transit_sender, request_repaint.clone());
         let future = {
             let send_request = send_request.clone();
             async {
@@ -77,7 +78,7 @@ impl SendingController {
                             wormhole,
                             file_path.clone(),
                             progress_updater,
-                            transit_sender,
+                            transit_handler,
                             request_repaint,
                         )
                         .await
@@ -87,7 +88,7 @@ impl SendingController {
                             wormhole,
                             folder_path.clone(),
                             progress_updater,
-                            transit_sender,
+                            transit_handler,
                             request_repaint,
                         )
                         .await
@@ -107,7 +108,7 @@ async fn send_file(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    transit_info_sender: oneshot::Sender<TransitInfo>,
+    transit_handler: impl TransitHandler,
     mut request_repaint: impl RequestRepaint,
 ) -> Result<(), PortalError> {
     let mut file = File::open(&path).await?;
@@ -120,7 +121,7 @@ async fn send_file(
         path.file_name().unwrap(),
         file_size,
         Abilities::ALL_ABILITIES,
-        transit_handler(transit_info_sender, request_repaint.clone()),
+        transit_handler,
         move |sent, total| {
             _ = progress.update(Progress { sent, total });
             request_repaint();
@@ -135,7 +136,7 @@ async fn send_folder(
     wormhole: Wormhole,
     path: PathBuf,
     progress: svc::Updater<Progress>,
-    transit_info_sender: oneshot::Sender<TransitInfo>,
+    transit_handler: impl TransitHandler,
     mut request_repaint: impl RequestRepaint,
 ) -> Result<(), PortalError> {
     transfer::send_folder(
@@ -144,7 +145,7 @@ async fn send_folder(
         &path,
         path.file_name().unwrap(),
         Abilities::ALL_ABILITIES,
-        transit_handler(transit_info_sender, request_repaint.clone()),
+        transit_handler,
         move |sent, total| {
             _ = progress.update(Progress { sent, total });
             request_repaint();

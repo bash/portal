@@ -7,10 +7,14 @@ lazy_static! {
     pub static ref RELAY_HINTS: Vec<RelayHint> = relay_hints();
 }
 
+pub trait TransitHandler : FnOnce(TransitInfo, SocketAddr) {}
+
+impl<F> TransitHandler for F where F: FnOnce(TransitInfo, SocketAddr) {}
+
 pub fn transit_handler(
     sender: ::oneshot::Sender<TransitInfo>,
     mut request_repaint: impl RequestRepaint,
-) -> impl FnOnce(TransitInfo, SocketAddr) {
+) -> impl TransitHandler {
     move |transit_info, _| {
         _ = sender.send(transit_info);
         request_repaint();

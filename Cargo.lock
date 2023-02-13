@@ -2579,7 +2579,6 @@ dependencies = [
  "lazy_static",
  "magic-wormhole",
  "oneshot",
- "poll-promise",
  "single_value_channel",
  "tempfile",
  "thiserror",

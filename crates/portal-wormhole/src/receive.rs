@@ -1,4 +1,6 @@
-use crate::transit::{transit_handler, TransitHandler, RELAY_HINTS};
+use crate::transit::{
+    progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
+};
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
@@ -109,8 +111,8 @@ impl ReceivingController {
         };
         let future = accept(
             receive_request,
-            transit_handler(transit_info_sender, request_repaint),
-            progress_updater,
+            transit_handler(transit_info_sender, request_repaint.clone()),
+            progress_handler(progress_updater, request_repaint),
             cancel_receiver,
         );
         (future, controller)
@@ -132,7 +134,7 @@ impl ReceivingController {
 async fn accept(
     receive_request: ReceiveRequest,
     transit_handler: impl TransitHandler,
-    progress_updater: svc::Updater<Progress>,
+    progress_handler: impl ProgressHandler,
     cancel: oneshot::Receiver<()>,
 ) -> ReceiveResult {
     let temp_file = tempfile::NamedTempFile::new()?;
@@ -144,9 +146,7 @@ async fn accept(
     receive_request
         .accept(
             transit_handler,
-            move |value, total| {
-                _ = progress_updater.update(Progress { value, total });
-            },
+            progress_handler,
             &mut temp_file_async,
             async {
                 _ = cancel.await;

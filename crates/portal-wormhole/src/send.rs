@@ -1,29 +1,21 @@
 use crate::error::PortalError;
-use crate::sync::BorrowingOneshotReceiver;
-use crate::transit::{
-    progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
-};
+use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
 use futures::future::BoxFuture;
+use futures::Future;
+use magic_wormhole::Code;
 use magic_wormhole::{
     transfer,
     transit::{Abilities, TransitInfo},
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
+use std::sync::Arc;
 use std::{
     future,
     path::{Path, PathBuf},
 };
-
-pub type ConnectResult = Result<
-    (
-        WormholeWelcome,
-        BoxFuture<'static, Result<Wormhole, PortalError>>,
-    ),
-    PortalError,
->;
 
 #[derive(Clone, Debug)]
 pub enum SendRequest {
@@ -40,62 +32,106 @@ impl SendRequest {
     }
 }
 
+pub fn send(
+    send_request: SendRequest,
+    request_repaint: impl RequestRepaint,
+) -> (
+    impl Future<Output = Result<(), PortalError>>,
+    SendingController,
+) {
+    let (progress_receiver, progress_updater) =
+        svc::channel_starting_with(SendingProgress::Connecting);
+
+    let controller = SendingController { progress_receiver };
+    let future = send_impl(send_request, report(progress_updater, request_repaint));
+
+    (future, controller)
+}
+
+async fn send_impl(
+    send_request: SendRequest,
+    mut report: impl Reporter,
+) -> Result<(), PortalError> {
+    let (transit_info_receiver, transit_info_updater) = svc::channel();
+
+    let (welcome, wormhole_future) = connect().await?;
+    report(SendingProgress::Connected(welcome.code));
+
+    let wormhole = wormhole_future.await?;
+    report(SendingProgress::PreparingToSend);
+
+    match send_request {
+        SendRequest::File(file_path) => {
+            send_file(
+                wormhole,
+                file_path.clone(),
+                progress_handler(transit_info_receiver, report.clone()),
+                transit_handler(transit_info_updater, report),
+            )
+            .await
+        }
+        SendRequest::Folder(folder_path) => {
+            send_folder(
+                wormhole,
+                folder_path.clone(),
+                progress_handler(transit_info_receiver, report.clone()),
+                transit_handler(transit_info_updater, report),
+            )
+            .await
+        }
+    }
+}
+
+trait Reporter = FnMut(SendingProgress) + Clone + 'static;
+
+fn report(
+    updater: svc::Updater<SendingProgress>,
+    mut request_repaint: impl RequestRepaint,
+) -> impl Reporter {
+    move |progress| {
+        _ = updater.update(progress);
+        request_repaint();
+    }
+}
+
+fn transit_handler(
+    updater: svc::Updater<Option<Arc<TransitInfo>>>,
+    mut report: impl Reporter,
+) -> impl TransitHandler {
+    move |transit_info, _| {
+        let transit_info = Arc::new(transit_info);
+        _ = updater.update(Some(Arc::clone(&transit_info)));
+        report(SendingProgress::Sending(transit_info, Progress::default()));
+    }
+}
+
+fn progress_handler(
+    mut transit_info: svc::Receiver<Option<Arc<TransitInfo>>>,
+    mut report: impl Reporter,
+) -> impl ProgressHandler {
+    move |value, total| {
+        let transit_info = transit_info.latest().clone().unwrap();
+        report(SendingProgress::Sending(
+            transit_info,
+            Progress { value, total },
+        ))
+    }
+}
+
 pub struct SendingController {
-    transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
-    progress_receiver: svc::Receiver<Progress>,
+    progress_receiver: svc::Receiver<SendingProgress>,
+}
+
+pub enum SendingProgress {
+    Connecting,
+    Connected(Code),
+    PreparingToSend,
+    Sending(Arc<TransitInfo>, Progress),
 }
 
 impl SendingController {
-    pub fn transit_info(&mut self) -> Option<&TransitInfo> {
-        self.transit_info_receiver.value()
-    }
-
-    pub fn progress(&mut self) -> Progress {
-        *self.progress_receiver.latest()
-    }
-}
-
-impl SendingController {
-    // TODO: this function needs refactoring
-    pub fn new(
-        send_request: &SendRequest,
-        wormhole: Wormhole,
-        request_repaint: impl RequestRepaint,
-    ) -> (BoxFuture<'static, Result<(), PortalError>>, Self) {
-        let (progress_receiver, progress_updater) = svc::channel_starting_with(Progress::default());
-        let (transit_sender, transit_info_receiver) = oneshot::channel();
-        let transit_handler = transit_handler(transit_sender, request_repaint.clone());
-        let progress_handler = progress_handler(progress_updater, request_repaint);
-        let future = {
-            let send_request = send_request.clone();
-            async {
-                match send_request {
-                    SendRequest::File(file_path) => {
-                        send_file(
-                            wormhole,
-                            file_path.clone(),
-                            progress_handler,
-                            transit_handler,
-                        )
-                        .await
-                    }
-                    SendRequest::Folder(folder_path) => {
-                        send_folder(
-                            wormhole,
-                            folder_path.clone(),
-                            progress_handler,
-                            transit_handler,
-                        )
-                        .await
-                    }
-                }
-            }
-        };
-        let controller = SendingController {
-            transit_info_receiver: transit_info_receiver.into(),
-            progress_receiver,
-        };
-        (Box::pin(future), controller)
+    pub fn progress(&mut self) -> &SendingProgress {
+        self.progress_receiver.latest()
     }
 }
 
@@ -141,4 +177,15 @@ async fn send_folder(
     )
     .await?;
     Ok(())
+}
+
+async fn connect() -> Result<
+    (
+        WormholeWelcome,
+        BoxFuture<'static, Result<Wormhole, PortalError>>,
+    ),
+    PortalError,
+> {
+    let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
+    Ok((welcome, Box::pin(async { Ok(future.await?) })))
 }

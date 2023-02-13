@@ -1,18 +1,17 @@
 use crate::egui_ext::ContextExt;
 use crate::transmit_info::transit_info_message;
 use crate::update;
-use crate::widgets::{cancel_button, page, page_with_content, CancelLabel};
-use eframe::{
-    egui::{Button, ProgressBar, TextEdit, Ui},
-    epaint::Vec2,
-};
+use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
+use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
 use portal_proc_macro::states;
 use portal_wormhole::receive::{
     connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,
     ReceivingController,
 };
 use portal_wormhole::{Code, PortalError, Progress};
+use std::fmt;
 use std::path::{Path, PathBuf};
+use ubyte::{ByteUnit, ToByteUnit};
 
 #[derive(Default)]
 pub struct ReceiveView {
@@ -137,7 +136,7 @@ fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageR
     page_with_content(
         ui,
         "Receive File",
-        "Enter the code from your peer below:",
+        "Enter the transmit code from the sender",
         "📥",
         |ui| {
             ui.add(TextEdit::singleline(code).hint_text("Code"));
@@ -145,11 +144,9 @@ fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageR
 
             let input_empty = code.is_empty() || code.chars().all(|c| c.is_whitespace());
 
-            let min_button_size = Vec2::new(100.0, 0.0);
-
             ui.add_enabled_ui(!input_empty, |ui| {
                 if ui
-                    .add(Button::new("Receive File").min_size(min_button_size))
+                    .add(Button::new("Receive File").min_size(MIN_BUTTON_SIZE))
                     .clicked()
                 {
                     Some(ReceivePageResponse::Connect)
@@ -186,16 +183,28 @@ fn show_connecting_page(ui: &mut Ui, controller: &mut ConnectingController) {
 
 fn show_connected_page(
     ui: &mut Ui,
-    _receive_request: &ReceiveRequestController,
+    receive_request: &ReceiveRequestController,
 ) -> Option<ConnectedPageResponse> {
-    page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
-        if ui.button("Reject").clicked() {
+    let text = format!(
+        "Your peer wants to send you \"{}\" (Size: {}). Do you want to download this file?",
+        receive_request.filename().display(),
+        ByteDisplay(receive_request.filesize().bytes())
+    );
+
+    page_with_content(ui, "Receive File", text, "📥", |ui| {
+        if ui
+            .add(Button::new("Reject").min_size(MIN_BUTTON_SIZE))
+            .clicked()
+        {
             return Some(ConnectedPageResponse::Reject);
         }
 
         ui.add_space(5.0);
 
-        if ui.button("Accept").clicked() {
+        if ui
+            .add(Button::new("Accept").min_size(MIN_BUTTON_SIZE))
+            .clicked()
+        {
             return Some(ConnectedPageResponse::Accept);
         }
 
@@ -240,15 +249,31 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
         return Some(CompletedPageResponse::Back);
     }
 
-    ui.label("Completed");
+    let filename = downloaded_path.file_name().unwrap();
 
-    if ui.button("Open File").clicked() {
-        _ = opener::open(downloaded_path);
-    }
+    page_with_content(
+        ui,
+        "File Transfer Successful",
+        format!("File \"{}\" has been saved to your Downloads folder", filename.to_string_lossy()),
+        "✅",
+        |ui| {
+            if ui
+                .add(Button::new("Open File").min_size(MIN_BUTTON_SIZE))
+                .clicked()
+            {
+                _ = opener::open(downloaded_path);
+            }
 
-    if ui.button("Show in Folder").clicked() {
-        _ = crate::utils::open_file_in_folder(downloaded_path);
-    }
+            ui.add_space(5.0);
+
+            if ui
+                .add(Button::new("Show in Folder").min_size(MIN_BUTTON_SIZE))
+                .clicked()
+            {
+                _ = crate::utils::open_file_in_folder(downloaded_path);
+            }
+        },
+    );
 
     None
 }
@@ -256,4 +281,34 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
 #[must_use]
 enum CompletedPageResponse {
     Back,
+}
+
+struct ByteDisplay(ByteUnit);
+
+// Same as https://github.com/SergioBenitez/ubyte/blob/master/src/byte_unit.rs#L442
+// except with a space between value and suffix.
+impl fmt::Display for ByteDisplay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const NO_BREAK_SPACE: &str = "\u{00A0}";
+        let (whole, rem, suffix, unit) = self.0.repr();
+        let width = f.width().unwrap_or(0);
+        if rem != 0f64 && f.precision().map(|p| p > 0).unwrap_or(true) {
+            let p = f.precision().unwrap_or(2);
+            let k = 10u64.saturating_pow(p as u32) as f64;
+            write!(
+                f,
+                "{:0width$}.{:0p$.0}{nbsp}{}",
+                whole,
+                rem * k,
+                suffix,
+                p = p,
+                width = width,
+                nbsp = NO_BREAK_SPACE,
+            )
+        } else if rem > 0.5f64 {
+            ((whole.bytes() + 1) * unit).fmt(f)
+        } else {
+            write!(f, "{:0width$}{nbsp}{}", whole, suffix, width = width, nbsp = NO_BREAK_SPACE)
+        }
+    }
 }

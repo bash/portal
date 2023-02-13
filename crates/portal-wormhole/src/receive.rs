@@ -78,6 +78,10 @@ impl ReceiveRequestController {
         &self.receive_request.filename
     }
 
+    pub fn filesize(&self) -> u64 {
+        self.receive_request.filesize
+    }
+
     pub fn accept(
         self,
         request_repaint: impl RequestRepaint,

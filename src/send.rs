@@ -1,9 +1,8 @@
 use crate::egui_ext::ContextExt;
 use crate::transmit_info::transit_info_message;
-use crate::widgets::{cancel_button, page, page_with_content, CancelLabel};
+use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
 use eframe::{
     egui::{Button, Key, Modifiers, ProgressBar, Ui},
-    epaint::Vec2,
 };
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
@@ -71,9 +70,7 @@ impl SendView {
     }
 
     fn show_file_selection(&mut self, ui: &mut Ui) {
-        let min_button_size = Vec2::new(100.0, 0.0);
-
-        let select_file_button = Button::new("Select File").min_size(min_button_size);
+        let select_file_button = Button::new("Select File").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_file_button).clicked()
             || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::O))
         {
@@ -84,7 +81,7 @@ impl SendView {
 
         ui.add_space(5.0);
 
-        let select_folder_button = Button::new("Select Folder").min_size(min_button_size);
+        let select_folder_button = Button::new("Select Folder").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_folder_button).clicked() {
             if let Some(folder_path) = FileDialog::new().pick_folder() {
                 *self = SendView::new_sending(ui, SendRequest::Folder(folder_path))

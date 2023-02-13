@@ -3,6 +3,7 @@ use crate::transmit_info::transit_info_message;
 use crate::update;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
 use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
+use egui::Key;
 use portal_proc_macro::states;
 use portal_wormhole::receive::{
     connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,
@@ -139,7 +140,13 @@ fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageR
         "Enter the transmit code from the sender",
         "📥",
         |ui| {
-            ui.add(TextEdit::singleline(code).hint_text("Code"));
+            if ui
+                .add(TextEdit::singleline(code).hint_text("Code"))
+                .lost_focus()
+                && ui.input(|input| input.key_pressed(Key::Enter))
+            {
+                return Some(ReceivePageResponse::Connect);
+            }
             ui.add_space(5.0);
 
             let input_empty = code.is_empty() || code.chars().all(|c| c.is_whitespace());

@@ -108,11 +108,16 @@ impl SendView {
     }
 
     fn accept_dropped_file(&mut self, ui: &mut Ui) {
-        let file_path = ui
+        let path = ui
             .ctx()
             .input(|input| input.raw.dropped_files.iter().find_map(|f| f.path.clone()));
-        if let Some(file_path) = file_path {
-            *self = SendView::new_sending(ui, SendRequest::File(file_path))
+        if let Some(path) = path {
+            let request = if path.is_dir() {
+                SendRequest::Folder(path)
+            } else {
+                SendRequest::File(path)
+            };
+            *self = SendView::new_sending(ui, request)
         }
     }
 

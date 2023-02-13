@@ -14,10 +14,24 @@ use magic_wormhole::{
     Code, Wormhole,
 };
 use single_value_channel as svc;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-pub type ConnectResult = Result<ReceiveRequest, PortalError>;
+pub type ConnectResult = Result<ReceiveRequestController, PortalError>;
 pub type ReceiveResult = Result<PathBuf, PortalError>;
+
+pub fn connect(code: Code) -> (impl Future<Output = ConnectResult>, ConnectingController) {
+    let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
+    let (cancel_sender, cancel_receiver) = oneshot::channel();
+    let cancel_future = async { _ = cancel_receiver.await };
+    let controller = ConnectingController {
+        cancel_sender: Some(cancel_sender),
+        wormhole_abort_handle,
+    };
+    (
+        connect_impl(code, abort_registration, cancel_future),
+        controller,
+    )
+}
 
 pub struct ConnectingController {
     wormhole_abort_handle: AbortHandle,
@@ -25,24 +39,13 @@ pub struct ConnectingController {
 }
 
 impl ConnectingController {
-    pub fn new(code: Code) -> (impl Future<Output = ConnectResult>, Self) {
-        let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
-        let (cancel_sender, cancel_receiver) = oneshot::channel();
-        let cancel_future = async { _ = cancel_receiver.await };
-        let controller = ConnectingController {
-            cancel_sender: Some(cancel_sender),
-            wormhole_abort_handle,
-        };
-        (connect(code, abort_registration, cancel_future), controller)
-    }
-
     pub fn cancel(&mut self) {
         self.cancel_sender.take().map(|c| c.send(()));
         self.wormhole_abort_handle.abort();
     }
 }
 
-async fn connect(
+async fn connect_impl(
     code: Code,
     abort_registration: AbortRegistration,
     cancel: impl Future<Output = ()>,
@@ -61,8 +64,29 @@ async fn connect(
     )
     .await?
     .ok_or(PortalError::Canceled)
+    .map(|receive_request| ReceiveRequestController { receive_request })
 }
 
+pub struct ReceiveRequestController {
+    receive_request: ReceiveRequest,
+}
+
+impl ReceiveRequestController {
+    pub fn filename(&self) -> &Path {
+        &self.receive_request.filename
+    }
+
+    pub fn accept(
+        self,
+        request_repaint: impl RequestRepaint,
+    ) -> (impl Future<Output = ReceiveResult>, ReceivingController) {
+        ReceivingController::new(self.receive_request, request_repaint)
+    }
+
+    pub async fn reject(self) -> Result<(), PortalError> {
+        Ok(self.receive_request.reject().await?)
+    }
+}
 
 pub struct ReceivingController {
     transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
@@ -71,7 +95,7 @@ pub struct ReceivingController {
 }
 
 impl ReceivingController {
-    pub fn new(
+    fn new(
         receive_request: ReceiveRequest,
         request_repaint: impl RequestRepaint,
     ) -> (impl Future<Output = ReceiveResult>, Self) {

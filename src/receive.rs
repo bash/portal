@@ -6,12 +6,12 @@ use eframe::{
     egui::{Button, ProgressBar, TextEdit, Ui},
     epaint::Vec2,
 };
-use magic_wormhole::{transfer::ReceiveRequest, Code};
 use portal_proc_macro::states;
 use portal_wormhole::receive::{
-    ConnectResult, ConnectingController, ReceiveResult, ReceivingController,
+    connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,
+    ReceivingController,
 };
-use portal_wormhole::{PortalError, Progress};
+use portal_wormhole::{Code, PortalError, Progress};
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
@@ -31,7 +31,7 @@ states! {
     state Initial(code: String);
 
     async state Connecting(controller: ConnectingController) -> ConnectResult {
-        new(code: Code) { ConnectingController::new(code) }
+        new(code: Code) { connect(code) }
         next {
             Ok(receive_request) => Connected(receive_request),
             Err(PortalError::Canceled) => Default::default(),
@@ -39,10 +39,10 @@ states! {
         }
     }
 
-    state Connected(request: ReceiveRequest);
+    state Connected(controller: ReceiveRequestController);
 
     async state Rejecting() -> Result<(), PortalError> {
-        new(request: ReceiveRequest) { (reject(request),) }
+        new(request: ReceiveRequestController) { (request.reject(),) }
         next {
             Ok(()) => Default::default(),
             Err(error) => Error(error),
@@ -50,10 +50,10 @@ states! {
     }
 
     async state Receiving(controller: ReceivingController, filename: PathBuf) -> ReceiveResult {
-        new(receive_request: ReceiveRequest) {
-            let filename = receive_request.filename.clone();
+        new(receive_request: ReceiveRequestController) {
+            let filename = receive_request.filename().to_owned();
             let ctx = ui.ctx().clone();
-            let (future, controller) = ReceivingController::new(receive_request, move || ctx.request_repaint());
+            let (future, controller) = receive_request.accept(move || ctx.request_repaint());
             (future, controller, filename)
          }
         next {
@@ -186,7 +186,7 @@ fn show_connecting_page(ui: &mut Ui, controller: &mut ConnectingController) {
 
 fn show_connected_page(
     ui: &mut Ui,
-    _receive_request: &ReceiveRequest,
+    _receive_request: &ReceiveRequestController,
 ) -> Option<ConnectedPageResponse> {
     page_with_content(ui, "Receive File", "TODO", "📥", |ui| {
         if ui.button("Reject").clicked() {
@@ -256,8 +256,4 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
 #[must_use]
 enum CompletedPageResponse {
     Back,
-}
-
-async fn reject(receive_request: ReceiveRequest) -> Result<(), PortalError> {
-    receive_request.reject().await.map_err(Into::into)
 }

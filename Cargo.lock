@@ -2577,6 +2577,7 @@ dependencies = [
  "async-std",
  "dirs",
  "futures",
+ "lazy_static",
  "magic-wormhole",
  "oneshot",
  "poll-promise",

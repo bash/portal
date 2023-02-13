@@ -4,6 +4,7 @@
 mod error;
 pub mod receive;
 pub use self::error::*;
+mod defaults;
 mod fs;
 pub mod send;
 mod sync;

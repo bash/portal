@@ -1,3 +1,4 @@
+use crate::defaults::RELAY_HINTS;
 use crate::{
     error::PortalError,
     fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
@@ -8,7 +9,7 @@ use futures::future::{AbortHandle, AbortRegistration, Abortable};
 use futures::{channel::oneshot, Future};
 use magic_wormhole::{
     transfer::{self, ReceiveRequest},
-    transit::{self, Abilities, TransitInfo},
+    transit::{Abilities, TransitInfo},
     Code, Wormhole,
 };
 use single_value_channel as svc;
@@ -141,10 +142,12 @@ async fn connect(
     )
     .await??;
 
-    let relay_hint =
-        transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
-            .unwrap();
-    transfer::request_file(wormhole, vec![relay_hint], Abilities::ALL_ABILITIES, cancel)
-        .await?
-        .ok_or(PortalError::Canceled)
+    transfer::request_file(
+        wormhole,
+        RELAY_HINTS.clone(),
+        Abilities::ALL_ABILITIES,
+        cancel,
+    )
+    .await?
+    .ok_or(PortalError::Canceled)
 }

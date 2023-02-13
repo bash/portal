@@ -1,11 +1,12 @@
+use crate::defaults::RELAY_HINTS;
 use crate::error::PortalError;
 use crate::sync::BorrowingOneshotReceiver;
 use crate::RequestRepaint;
 use async_std::fs::File;
 use futures::future::BoxFuture;
 use magic_wormhole::{
-    transfer::{self},
-    transit::{self, Abilities, TransitInfo},
+    transfer,
+    transit::{Abilities, TransitInfo},
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
@@ -112,12 +113,9 @@ async fn send_file(
     let mut file = File::open(&path).await?;
     let metadata = file.metadata().await?;
     let file_size = metadata.len();
-    let relay_hint =
-        transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
-            .unwrap();
     transfer::send_file(
         wormhole,
-        vec![relay_hint],
+        RELAY_HINTS.clone(),
         &mut file,
         path.file_name().unwrap(),
         file_size,
@@ -146,12 +144,9 @@ async fn send_folder(
     transit_info_sender: oneshot::Sender<TransitInfo>,
     mut request_repaint: impl RequestRepaint,
 ) -> Result<(), PortalError> {
-    let relay_hint =
-        transit::RelayHint::from_urls(None, [transit::DEFAULT_RELAY_SERVER.parse().unwrap()])
-            .unwrap();
     transfer::send_folder(
         wormhole,
-        vec![relay_hint],
+        RELAY_HINTS.clone(),
         &path,
         path.file_name().unwrap(),
         Abilities::ALL_ABILITIES,

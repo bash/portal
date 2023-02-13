@@ -24,6 +24,7 @@ states! {
         }
         next {
             Ok(_) => Complete(request),
+            Err(PortalError::Canceled) => SendView::default(),
             Err(error) => Error(error),
         }
     }
@@ -133,6 +134,10 @@ fn show_transfer_progress(
     controller: &mut SendingController,
     send_request: &SendRequest,
 ) {
+    if cancel_button(ui, CancelLabel::Cancel) {
+        controller.cancel();
+    }
+
     let filename = send_request.path().file_name().unwrap();
     match controller.progress() {
         SendingProgress::Connecting => show_transmit_code_progress(ui),

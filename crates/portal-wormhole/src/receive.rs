@@ -19,6 +19,51 @@ use std::path::PathBuf;
 pub type ConnectResult = Result<ReceiveRequest, PortalError>;
 pub type ReceiveResult = Result<PathBuf, PortalError>;
 
+pub struct ConnectingController {
+    wormhole_abort_handle: AbortHandle,
+    cancel_sender: Option<oneshot::Sender<()>>,
+}
+
+impl ConnectingController {
+    pub fn new(code: Code) -> (impl Future<Output = ConnectResult>, Self) {
+        let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
+        let (cancel_sender, cancel_receiver) = oneshot::channel();
+        let cancel_future = async { _ = cancel_receiver.await };
+        let controller = ConnectingController {
+            cancel_sender: Some(cancel_sender),
+            wormhole_abort_handle,
+        };
+        (connect(code, abort_registration, cancel_future), controller)
+    }
+
+    pub fn cancel(&mut self) {
+        self.cancel_sender.take().map(|c| c.send(()));
+        self.wormhole_abort_handle.abort();
+    }
+}
+
+async fn connect(
+    code: Code,
+    abort_registration: AbortRegistration,
+    cancel: impl Future<Output = ()>,
+) -> ConnectResult {
+    let (_, wormhole) = Abortable::new(
+        Wormhole::connect_with_code(transfer::APP_CONFIG, code),
+        abort_registration,
+    )
+    .await??;
+
+    transfer::request_file(
+        wormhole,
+        RELAY_HINTS.clone(),
+        Abilities::ALL_ABILITIES,
+        cancel,
+    )
+    .await?
+    .ok_or(PortalError::Canceled)
+}
+
+
 pub struct ReceivingController {
     transit_info_receiver: BorrowingOneshotReceiver<TransitInfo>,
     progress: svc::Receiver<Progress>,
@@ -102,48 +147,4 @@ async fn accept(
     )?;
 
     Ok(persisted_path)
-}
-
-pub struct ConnectingController {
-    wormhole_abort_handle: AbortHandle,
-    cancel_sender: Option<oneshot::Sender<()>>,
-}
-
-impl ConnectingController {
-    pub fn new(code: Code) -> (impl Future<Output = ConnectResult>, Self) {
-        let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
-        let (cancel_sender, cancel_receiver) = oneshot::channel();
-        let cancel_future = async { _ = cancel_receiver.await };
-        let controller = ConnectingController {
-            cancel_sender: Some(cancel_sender),
-            wormhole_abort_handle,
-        };
-        (connect(code, abort_registration, cancel_future), controller)
-    }
-
-    pub fn cancel(&mut self) {
-        self.cancel_sender.take().map(|c| c.send(()));
-        self.wormhole_abort_handle.abort();
-    }
-}
-
-async fn connect(
-    code: Code,
-    abort_registration: AbortRegistration,
-    cancel: impl Future<Output = ()>,
-) -> ConnectResult {
-    let (_, wormhole) = Abortable::new(
-        Wormhole::connect_with_code(transfer::APP_CONFIG, code),
-        abort_registration,
-    )
-    .await??;
-
-    transfer::request_file(
-        wormhole,
-        RELAY_HINTS.clone(),
-        Abilities::ALL_ABILITIES,
-        cancel,
-    )
-    .await?
-    .ok_or(PortalError::Canceled)
 }

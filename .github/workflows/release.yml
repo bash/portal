@@ -127,7 +127,7 @@ jobs:
       - name: Zip release
         uses: vimtor/action-zip@v1
         with:
-          files: target/release/${{ env.EXECUTABLE_NAME }}.exe installer/en-US/portal-installer.msi
+          files: target/release/${{ env.EXECUTABLE_NAME }}.exe
           dest: ${{ env.EXECUTABLE_NAME }}_windows.zip
       - name: Upload release
         uses: svenstaro/upload-release-action@v2
@@ -135,5 +135,13 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ env.EXECUTABLE_NAME }}_windows.zip
           asset_name: ${{ env.EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_windows.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+      - name: Upload release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: installer/en-US/portal-installer.msi
+          asset_name: ${{ env.EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_windows.msi
           tag: ${{ github.ref }}
           overwrite: true

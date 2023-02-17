@@ -1,4 +1,5 @@
 use crate::error::PortalError;
+use crate::temp_zip::pack_folder_as_zip;
 use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
@@ -12,7 +13,8 @@ use magic_wormhole::{
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -109,7 +111,8 @@ async fn send_impl(
         SendRequest::File(file_path) => {
             send_file(
                 wormhole,
-                file_path.clone(),
+                &file_path,
+                file_path.file_name().unwrap(),
                 progress_handler(transit_info_receiver, report.clone()),
                 transit_handler(transit_info_updater, report),
                 cancel,
@@ -119,7 +122,7 @@ async fn send_impl(
         SendRequest::Folder(folder_path) => {
             send_folder(
                 wormhole,
-                folder_path.clone(),
+                &folder_path,
                 progress_handler(transit_info_receiver, report.clone()),
                 transit_handler(transit_info_updater, report),
                 cancel,
@@ -168,7 +171,8 @@ fn progress_handler(
 
 async fn send_file(
     wormhole: Wormhole,
-    path: PathBuf,
+    path: &Path,
+    file_name: &OsStr,
     progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
     cancel: impl Future<Output = ()>,
@@ -182,7 +186,7 @@ async fn send_file(
         wormhole,
         RELAY_HINTS.clone(),
         &mut file,
-        path.file_name().unwrap(),
+        file_name,
         file_size,
         Abilities::ALL_ABILITIES,
         transit_handler,
@@ -203,23 +207,24 @@ async fn send_file(
 
 async fn send_folder(
     wormhole: Wormhole,
-    path: PathBuf,
+    path: &Path,
     progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
     cancel: impl Future<Output = ()>,
 ) -> Result<(), PortalError> {
-    transfer::send_folder(
+    // TODO: Pack folder before connecting to wormhole
+    let zip_archive = pack_folder_as_zip(path)?;
+    let mut file_name = path.file_name().unwrap().to_owned();
+    file_name.push(".zip");
+    send_file(
         wormhole,
-        RELAY_HINTS.clone(),
-        &path,
-        path.file_name().unwrap(),
-        Abilities::ALL_ABILITIES,
-        transit_handler,
+        zip_archive.path(),
+        &file_name,
         progress_handler,
+        transit_handler,
         cancel,
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 async fn connect() -> Result<

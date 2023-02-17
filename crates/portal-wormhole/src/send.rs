@@ -1,5 +1,5 @@
 use crate::error::PortalError;
-use crate::temp_zip::pack_folder_as_zip;
+use crate::temp_zip::{pack_folder_as_zip, pack_selection_as_zip};
 use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
@@ -129,7 +129,19 @@ async fn send_impl(
             )
             .await
         }
-        SendRequest::Selection(_) => todo!(),
+        SendRequest::Selection(paths) => {
+            let zip = pack_selection_as_zip(&paths)?;
+            send_file(
+                wormhole,
+                zip.path(),
+                // TODO: Use the parent folder name if all paths in the selection share a parent folder
+                OsStr::new("Selection.zip"),
+                progress_handler(transit_info_receiver, report.clone()),
+                transit_handler(transit_info_updater, report),
+                cancel,
+            )
+            .await
+        }
     }
 }
 

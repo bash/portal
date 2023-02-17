@@ -2,12 +2,13 @@ use crate::egui_ext::ContextExt;
 use crate::transit_info::TransitInfoDisplay;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
 use eframe::egui::{Button, Key, Modifiers, ProgressBar, Ui};
+use egui::InputState;
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
 use portal_wormhole::{Code, PortalError, Progress};
 use rfd::FileDialog;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 states! {
     pub enum SendView;
@@ -105,16 +106,9 @@ impl SendView {
     }
 
     fn accept_dropped_file(&mut self, ui: &mut Ui) {
-        let path = ui
-            .ctx()
-            .input(|input| input.raw.dropped_files.iter().find_map(|f| f.path.clone()));
-        if let Some(path) = path {
-            let request = if path.is_dir() {
-                SendRequest::Folder(path)
-            } else {
-                SendRequest::File(path)
-            };
-            *self = SendView::new_sending(ui, request)
+        let dropped_file_paths: Vec<_> = ui.ctx().input(dropped_file_paths);
+        if let Some(send_request) = SendRequest::from_paths(dropped_file_paths) {
+            *self = SendView::new_sending(ui, send_request)
         }
     }
 
@@ -123,6 +117,15 @@ impl SendView {
             *self = SendView::default();
         }
     }
+}
+
+fn dropped_file_paths(input: &InputState) -> Vec<PathBuf> {
+    input
+        .raw
+        .dropped_files
+        .iter()
+        .filter_map(|f| f.path.clone())
+        .collect()
 }
 
 fn show_transfer_progress(

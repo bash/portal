@@ -21,6 +21,17 @@ pub enum SendRequest {
     Folder(PathBuf),
 }
 
+impl SendRequest {
+    pub fn from_paths(paths: Vec<PathBuf>) -> Option<Self> {
+        let first_path = paths.first()?.to_owned();
+        if first_path.is_dir() {
+            Some(SendRequest::Folder(first_path))
+        } else {
+            Some(SendRequest::File(first_path))
+        }
+    }
+}
+
 pub fn send(
     send_request: SendRequest,
     request_repaint: impl RequestRepaint,

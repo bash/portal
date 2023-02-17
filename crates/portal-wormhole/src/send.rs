@@ -13,7 +13,7 @@ use magic_wormhole::{
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -134,7 +134,7 @@ async fn send_impl(
             send_file(
                 wormhole,
                 zip.path(),
-                OsStr::new("Selection.zip"),
+                &selection_zip_file_name(&paths),
                 progress_handler(transit_info_receiver, report.clone()),
                 transit_handler(transit_info_updater, report),
                 cancel,
@@ -142,6 +142,31 @@ async fn send_impl(
             .await
         }
     }
+}
+
+fn selection_zip_file_name(paths: &[PathBuf]) -> OsString {
+    common_parent_directory(paths)
+        .and_then(|p| p.file_name())
+        .map(|p| concat_os_strs(p, ".zip"))
+        .unwrap_or_else(|| OsString::from("Selection.zip"))
+}
+
+fn concat_os_strs(a: impl AsRef<OsStr>, b: impl AsRef<OsStr>) -> OsString {
+    let a = a.as_ref();
+    let b = b.as_ref();
+    let mut result = OsString::with_capacity(a.len() + b.len());
+    result.push(a);
+    result.push(b);
+    result
+}
+
+fn common_parent_directory(paths: &[PathBuf]) -> Option<&Path> {
+    let parent = paths.first()?.parent()?;
+    paths
+        .iter()
+        .skip(1)
+        .all(|p| p.parent() == Some(parent))
+        .then_some(parent)
 }
 
 trait Reporter = FnMut(SendingProgress) + Clone + 'static;

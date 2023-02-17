@@ -74,8 +74,11 @@ impl SendView {
         if ui.add(select_file_button).clicked()
             || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::O))
         {
-            if let Some(file_path) = FileDialog::new().pick_file() {
-                *self = SendView::new_sending(ui, SendRequest::File(file_path))
+            if let Some(send_request) = FileDialog::new()
+                .pick_files()
+                .and_then(SendRequest::from_paths)
+            {
+                *self = SendView::new_sending(ui, send_request)
             }
         }
 
@@ -83,8 +86,11 @@ impl SendView {
 
         let select_folder_button = Button::new("Select Folder").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_folder_button).clicked() {
-            if let Some(folder_path) = FileDialog::new().pick_folder() {
-                *self = SendView::new_sending(ui, SendRequest::Folder(folder_path))
+            if let Some(send_request) = FileDialog::new()
+                .pick_folders()
+                .and_then(SendRequest::from_paths)
+            {
+                *self = SendView::new_sending(ui, send_request)
             }
         }
     }

@@ -7,7 +7,6 @@ use walkdir::WalkDir;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
-// TODO: Progress report
 pub fn pack_folder_as_zip(folder_path: &Path) -> Result<NamedTempFile, PortalError> {
     let mut temp_file = NamedTempFile::new()?;
     {
@@ -17,7 +16,6 @@ pub fn pack_folder_as_zip(folder_path: &Path) -> Result<NamedTempFile, PortalErr
     Ok(temp_file)
 }
 
-// TODO: conflict handling
 pub fn pack_selection_as_zip(paths: &[PathBuf]) -> Result<NamedTempFile, PortalError> {
     let mut temp_file = NamedTempFile::new()?;
     {
@@ -46,8 +44,6 @@ where
             .strip_prefix(folder_path)
             .expect("File in folder should start with folder path");
         let relative_path_as_string = relative_path.to_string_lossy();
-
-        // TODO: decide when to enable large_file(true)
 
         if entry.file_type().is_dir() {
             writer.add_directory(relative_path_as_string, FileOptions::default())?;

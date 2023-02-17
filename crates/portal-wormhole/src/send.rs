@@ -134,7 +134,6 @@ async fn send_impl(
             send_file(
                 wormhole,
                 zip.path(),
-                // TODO: Use the parent folder name if all paths in the selection share a parent folder
                 OsStr::new("Selection.zip"),
                 progress_handler(transit_info_receiver, report.clone()),
                 transit_handler(transit_info_updater, report),
@@ -224,7 +223,6 @@ async fn send_folder(
     transit_handler: impl TransitHandler,
     cancel: impl Future<Output = ()>,
 ) -> Result<(), PortalError> {
-    // TODO: Pack folder before connecting to wormhole
     let zip_archive = pack_folder_as_zip(path)?;
     let mut file_name = path.file_name().unwrap().to_owned();
     file_name.push(".zip");

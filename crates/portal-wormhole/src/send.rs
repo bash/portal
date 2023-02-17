@@ -12,22 +12,13 @@ use magic_wormhole::{
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum SendRequest {
     File(PathBuf),
     Folder(PathBuf),
-}
-
-impl SendRequest {
-    pub fn path(&self) -> &Path {
-        match self {
-            SendRequest::File(path) => path,
-            SendRequest::Folder(path) => path,
-        }
-    }
 }
 
 pub fn send(

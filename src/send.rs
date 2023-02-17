@@ -1,11 +1,12 @@
 use crate::egui_ext::ContextExt;
-use crate::transmit_info::transit_info_message;
+use crate::transit_info::TransitInfoDisplay;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
 use eframe::egui::{Button, Key, Modifiers, ProgressBar, Ui};
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
 use portal_wormhole::{Code, PortalError, Progress};
 use rfd::FileDialog;
+use std::fmt;
 use std::path::Path;
 
 states! {
@@ -93,12 +94,12 @@ impl SendView {
     }
 
     fn show_transfer_completed_page(&mut self, ui: &mut Ui, send_request: SendRequest) {
-        let filename = send_request.path().file_name().unwrap();
+        let request_title = SendRequestDisplay(&send_request).to_string();
         self.back_button(ui);
         page(
             ui,
             "File Transfer Successful",
-            format!("Successfully sent file \"{}\"", filename.to_string_lossy()),
+            format!("Successfully sent {request_title}"),
             "✅",
         );
     }
@@ -133,14 +134,13 @@ fn show_transfer_progress(
         controller.cancel();
     }
 
-    let filename = send_request.path().file_name().unwrap();
     match controller.progress() {
         SendingProgress::Connecting => show_transmit_code_progress(ui),
-        SendingProgress::Connected(code) => show_transmit_code(ui, code, send_request.path()),
+        SendingProgress::Connected(code) => show_transmit_code(ui, code, send_request),
         SendingProgress::PreparingToSend => page_with_content(
             ui,
             "Connected to Peer",
-            format!("Preparing to send file \"{}\"", filename.to_string_lossy()),
+            format!("Preparing to send {}", SendRequestDisplay(send_request)),
             "📤",
             |ui| {
                 ui.spinner();
@@ -150,7 +150,11 @@ fn show_transfer_progress(
             page_with_content(
                 ui,
                 "Sending File",
-                transit_info_message(transit_info, filename),
+                format!(
+                    "{}{}",
+                    SendRequestDisplay(send_request),
+                    TransitInfoDisplay(transit_info)
+                ),
                 "📤",
                 |ui| {
                     ui.add(ProgressBar::new((*sent as f64 / *total as f64) as f32).animate(true));
@@ -172,13 +176,13 @@ fn show_transmit_code_progress(ui: &mut Ui) {
     )
 }
 
-fn show_transmit_code(ui: &mut Ui, code: &Code, file_path: &Path) {
+fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
     page_with_content(
         ui,
         "Your Transmit Code",
         format!(
-            "Ready to send \"{}\".\nThe receiver needs to enter this code to begin the file transfer.",
-            file_path.file_name().unwrap().to_string_lossy()
+            "Ready to send {}.\nThe receiver needs to enter this code to begin the file transfer.",
+            SendRequestDisplay(send_request)
         ),
         "✨",
         |ui| {
@@ -188,6 +192,23 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, file_path: &Path) {
                     ui.output_mut(|output| output.copied_text = code.0.clone());
                 }
             });
-        }
+        },
     );
+}
+
+struct SendRequestDisplay<'a>(&'a SendRequest);
+
+impl<'a> fmt::Display for SendRequestDisplay<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            SendRequest::File(path) => write!(f, "file \"{}\"", filename_or_self(path).display()),
+            SendRequest::Folder(path) => {
+                write!(f, "folder \"{}\"", filename_or_self(path).display())
+            }
+        }
+    }
+}
+
+fn filename_or_self(path: &Path) -> &Path {
+    path.file_name().map(Path::new).unwrap_or(path)
 }

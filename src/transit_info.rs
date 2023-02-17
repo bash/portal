@@ -1,13 +1,8 @@
 use portal_wormhole::TransitInfo;
-use std::ffi::OsStr;
+
 use std::fmt;
 
-pub fn transit_info_message(transit_info: &TransitInfo, filename: &OsStr) -> String {
-    let filename = filename.to_string_lossy();
-    format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
-}
-
-struct TransitInfoDisplay<'a>(&'a TransitInfo);
+pub struct TransitInfoDisplay<'a>(pub &'a TransitInfo);
 
 impl<'a> fmt::Display for TransitInfoDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

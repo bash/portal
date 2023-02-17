@@ -1,5 +1,5 @@
 use crate::egui_ext::ContextExt;
-use crate::transmit_info::transit_info_message;
+use crate::transit_info::TransitInfoDisplay;
 use crate::update;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
 use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
@@ -9,7 +9,7 @@ use portal_wormhole::receive::{
     connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,
     ReceivingController,
 };
-use portal_wormhole::{Code, PortalError, Progress};
+use portal_wormhole::{Code, PortalError, Progress, TransitInfo};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use ubyte::{ByteUnit, ToByteUnit};
@@ -231,7 +231,7 @@ fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filena
         Some(transit_info) => page_with_content(
             ui,
             "Receiving File",
-            transit_info_message(transit_info, filename.as_os_str()),
+            transit_info_message(transit_info, filename),
             "📥",
             |ui| {
                 ui.add(ProgressBar::new((received as f64 / total as f64) as f32).animate(true));
@@ -247,6 +247,14 @@ fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filena
             },
         ),
     }
+}
+
+fn transit_info_message(transit_info: &TransitInfo, filename: &Path) -> String {
+    format!(
+        "File \"{}\"{}",
+        filename.display(),
+        TransitInfoDisplay(transit_info)
+    )
 }
 
 fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedPageResponse> {

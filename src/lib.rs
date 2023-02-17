@@ -11,7 +11,7 @@ use widgets::{view_switcher, ViewSwitcher};
 mod egui_ext;
 mod receive;
 mod send;
-mod transmit_info;
+mod transit_info;
 mod utils;
 mod widgets;
 

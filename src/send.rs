@@ -212,6 +212,7 @@ impl<'a> fmt::Display for SendRequestDisplay<'a> {
             SendRequest::Folder(path) => {
                 write!(f, "folder \"{}\"", filename_or_self(path).display())
             }
+            SendRequest::Selection(_) => write!(f, "selection"),
         }
     }
 }

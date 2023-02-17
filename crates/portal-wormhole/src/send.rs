@@ -19,15 +19,16 @@ use std::sync::Arc;
 pub enum SendRequest {
     File(PathBuf),
     Folder(PathBuf),
+    Selection(Vec<PathBuf>),
 }
 
 impl SendRequest {
     pub fn from_paths(paths: Vec<PathBuf>) -> Option<Self> {
-        let first_path = paths.first()?.to_owned();
-        if first_path.is_dir() {
-            Some(SendRequest::Folder(first_path))
-        } else {
-            Some(SendRequest::File(first_path))
+        match paths.len() {
+            0 => None,
+            1 if paths[0].is_dir() => Some(SendRequest::Folder(paths[0].clone())),
+            1 => Some(SendRequest::File(paths[0].clone())),
+            _ => Some(SendRequest::Selection(paths)),
         }
     }
 }
@@ -125,6 +126,7 @@ async fn send_impl(
             )
             .await
         }
+        SendRequest::Selection(_) => todo!(),
     }
 }
 

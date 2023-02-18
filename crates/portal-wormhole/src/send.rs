@@ -1,4 +1,6 @@
+use self::sendable_file::SendableFile;
 use crate::error::PortalError;
+use crate::sync::{cancellation_pair, CancellationReceiver, CancellationSender};
 use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
@@ -12,25 +14,11 @@ use magic_wormhole::{
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
-use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
-pub enum SendRequest {
-    File(PathBuf),
-    Folder(PathBuf),
-}
-
-impl SendRequest {
-    pub fn from_paths(paths: Vec<PathBuf>) -> Option<Self> {
-        let first_path = paths.first()?.to_owned();
-        if first_path.is_dir() {
-            Some(SendRequest::Folder(first_path))
-        } else {
-            Some(SendRequest::File(first_path))
-        }
-    }
-}
+mod request;
+pub use self::request::SendRequest;
+mod sendable_file;
 
 pub fn send(
     send_request: SendRequest,
@@ -43,11 +31,15 @@ pub fn send(
         svc::channel_starting_with(SendingProgress::Connecting);
     let (cancel_sender, cancel_receiver) = oneshot::channel();
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
+    let (pack_abort_handle, pack_abort_registration) = AbortHandle::new_pair();
+    let (cancellation_sender, cancellation_receiver) = cancellation_pair();
 
     let controller = SendingController {
         progress_receiver,
         cancel_sender: Some(cancel_sender),
         abort_handle,
+        pack_abort_handle,
+        cancellation_sender,
     };
 
     let future = send_impl(
@@ -55,6 +47,8 @@ pub fn send(
         report(progress_updater, request_repaint),
         async { _ = cancel_receiver.await },
         abort_registration,
+        pack_abort_registration,
+        cancellation_receiver,
     );
 
     (future, controller)
@@ -64,9 +58,12 @@ pub struct SendingController {
     progress_receiver: svc::Receiver<SendingProgress>,
     cancel_sender: Option<oneshot::Sender<()>>,
     abort_handle: AbortHandle,
+    pack_abort_handle: AbortHandle,
+    cancellation_sender: CancellationSender,
 }
 
 pub enum SendingProgress {
+    Packing,
     Connecting,
     Connected(Code),
     PreparingToSend,
@@ -81,6 +78,8 @@ impl SendingController {
     pub fn cancel(&mut self) {
         self.abort_handle.abort();
         self.cancel_sender.take().map(|c| c.send(()));
+        self.pack_abort_handle.abort();
+        self.cancellation_sender.cancel();
     }
 }
 
@@ -89,9 +88,19 @@ async fn send_impl(
     mut report: impl Reporter,
     cancel: impl Future<Output = ()>,
     abort_registration: AbortRegistration,
+    pack_abort_registration: AbortRegistration,
+    cancellation_receiver: CancellationReceiver,
 ) -> Result<(), PortalError> {
     let (transit_info_receiver, transit_info_updater) = svc::channel();
 
+    report(SendingProgress::Packing);
+    let sendable_file = Abortable::new(
+        SendableFile::from_send_request(send_request, cancellation_receiver),
+        pack_abort_registration,
+    )
+    .await??;
+
+    report(SendingProgress::Connecting);
     let wormhole = async {
         let (welcome, wormhole_future) = connect().await?;
         report(SendingProgress::Connected(welcome.code));
@@ -104,28 +113,14 @@ async fn send_impl(
 
     let wormhole = Abortable::new(wormhole, abort_registration).await??;
 
-    match send_request {
-        SendRequest::File(file_path) => {
-            send_file(
-                wormhole,
-                file_path.clone(),
-                progress_handler(transit_info_receiver, report.clone()),
-                transit_handler(transit_info_updater, report),
-                cancel,
-            )
-            .await
-        }
-        SendRequest::Folder(folder_path) => {
-            send_folder(
-                wormhole,
-                folder_path.clone(),
-                progress_handler(transit_info_receiver, report.clone()),
-                transit_handler(transit_info_updater, report),
-                cancel,
-            )
-            .await
-        }
-    }
+    send_file(
+        wormhole,
+        sendable_file,
+        progress_handler(transit_info_receiver, report.clone()),
+        transit_handler(transit_info_updater, report),
+        cancel,
+    )
+    .await
 }
 
 trait Reporter = FnMut(SendingProgress) + Clone + 'static;
@@ -166,12 +161,12 @@ fn progress_handler(
 
 async fn send_file(
     wormhole: Wormhole,
-    path: PathBuf,
+    sendable_file: SendableFile,
     progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
     cancel: impl Future<Output = ()>,
 ) -> Result<(), PortalError> {
-    let mut file = File::open(&path).await?;
+    let mut file = File::open(sendable_file.path()).await?;
     let metadata = file.metadata().await?;
     let file_size = metadata.len();
 
@@ -180,7 +175,7 @@ async fn send_file(
         wormhole,
         RELAY_HINTS.clone(),
         &mut file,
-        path.file_name().unwrap(),
+        sendable_file.file_name(),
         file_size,
         Abilities::ALL_ABILITIES,
         transit_handler,
@@ -197,27 +192,6 @@ async fn send_file(
     } else {
         Ok(())
     }
-}
-
-async fn send_folder(
-    wormhole: Wormhole,
-    path: PathBuf,
-    progress_handler: impl ProgressHandler,
-    transit_handler: impl TransitHandler,
-    cancel: impl Future<Output = ()>,
-) -> Result<(), PortalError> {
-    transfer::send_folder(
-        wormhole,
-        RELAY_HINTS.clone(),
-        &path,
-        path.file_name().unwrap(),
-        Abilities::ALL_ABILITIES,
-        transit_handler,
-        progress_handler,
-        cancel,
-    )
-    .await?;
-    Ok(())
 }
 
 async fn connect() -> Result<

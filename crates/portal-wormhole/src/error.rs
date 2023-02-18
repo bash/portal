@@ -13,6 +13,10 @@ pub enum PortalError {
     TransferRejected(TransferError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Walkdir(#[from] walkdir::Error),
+    #[error(transparent)]
+    Zip(#[from] zip::result::ZipError),
     #[error("The operation has been canceled")]
     Canceled,
 }

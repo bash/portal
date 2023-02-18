@@ -8,6 +8,7 @@ pub use self::error::*;
 mod fs;
 pub mod send;
 mod sync;
+mod temp_zip;
 mod transit;
 
 pub use magic_wormhole::{transit::TransitInfo, Code};

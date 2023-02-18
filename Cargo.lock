@@ -2536,7 +2536,7 @@ dependencies = [
 
 [[package]]
 name = "portal"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-std",
  "eframe",

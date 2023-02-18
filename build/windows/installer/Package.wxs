@@ -2,7 +2,7 @@
     <Package
         Name="Portal"
         Manufacturer="Ruben Schmidmeister"
-        Version="0.1.6"
+        Version="0.1.7"
         UpgradeCode="dd827eb7-1309-4d4e-9eea-50022cb17bad"
         Scope="perUserOrMachine">
         <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />

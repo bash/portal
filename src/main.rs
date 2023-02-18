@@ -9,7 +9,7 @@ async fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(320.0, 400.0)),
+        initial_window_size: Some(egui::vec2(320.0, 500.0)),
         follow_system_theme: true,
         ..Default::default()
     };

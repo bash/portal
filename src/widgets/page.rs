@@ -7,6 +7,7 @@ pub fn page<'a>(
     icon: impl Into<Option<&'a str>>,
 ) {
     if let Some(icon) = icon.into() {
+        ui.add_space(10.);
         ui.label(RichText::new(icon).size(120.0));
     }
     ui.add_space(10.0);

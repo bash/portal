@@ -2,7 +2,7 @@ use crate::egui_ext::ContextExt;
 use crate::transit_info::TransitInfoDisplay;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
 use eframe::egui::{Button, Key, Modifiers, ProgressBar, Ui};
-use egui::InputState;
+use egui::{InputState, RichText};
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
 use portal_wormhole::{Code, PortalError, Progress};
@@ -189,12 +189,15 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
         ),
         "✨",
         |ui| {
-            ui.horizontal(|ui| {
-                ui.label(&code.0);
-                if ui.button("📋").on_hover_text("Click to copy").clicked() {
-                    ui.output_mut(|output| output.copied_text = code.0.clone());
-                }
-            });
+            ui.label(RichText::new(&code.0).size(15.).strong());
+            ui.add_space(5.);
+            if ui
+                .button("📋 Copy")
+                .on_hover_text("Click to copy")
+                .clicked()
+            {
+                ui.output_mut(|output| output.copied_text = code.0.clone());
+            }
         },
     );
 }

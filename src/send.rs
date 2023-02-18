@@ -144,6 +144,7 @@ fn show_transfer_progress(
     }
 
     match controller.progress() {
+        SendingProgress::Packing => show_packing_progress(ui, send_request),
         SendingProgress::Connecting => show_transmit_code_progress(ui),
         SendingProgress::Connected(code) => show_transmit_code(ui, code, send_request),
         SendingProgress::PreparingToSend => page_with_content(
@@ -171,6 +172,21 @@ fn show_transfer_progress(
             )
         }
     }
+}
+
+fn show_packing_progress(ui: &mut Ui, send_request: &SendRequest) {
+    page_with_content(
+        ui,
+        "Send File",
+        format!(
+            "Packing {} to a Zip file...",
+            SendRequestDisplay(send_request)
+        ),
+        "📤",
+        |ui| {
+            ui.spinner();
+        },
+    )
 }
 
 fn show_transmit_code_progress(ui: &mut Ui) {

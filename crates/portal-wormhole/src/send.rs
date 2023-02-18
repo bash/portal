@@ -71,6 +71,7 @@ pub struct SendingController {
 }
 
 pub enum SendingProgress {
+    Packing,
     Connecting,
     Connected(Code),
     PreparingToSend,
@@ -96,8 +97,10 @@ async fn send_impl(
 ) -> Result<(), PortalError> {
     let (transit_info_receiver, transit_info_updater) = svc::channel();
 
+    report(SendingProgress::Packing);
     let sendable_file = SendableFile::from_send_request(send_request)?;
 
+    report(SendingProgress::Connecting);
     let wormhole = async {
         let (welcome, wormhole_future) = connect().await?;
         report(SendingProgress::Connected(welcome.code));

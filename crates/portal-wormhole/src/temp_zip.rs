@@ -19,6 +19,9 @@ pub fn pack_folder_as_zip(folder_path: &Path) -> Result<NamedTempFile, PortalErr
 }
 
 /// Packs a selection of paths (e.g. from drag and drop) as a Zip file.
+///
+/// Note that this function does not handle duplicate entries as this should be a rare case
+/// (it requires selecting files across multiple directories).
 pub fn pack_selection_as_zip(paths: &[PathBuf]) -> Result<NamedTempFile, PortalError> {
     let mut temp_file = NamedTempFile::new()?;
     {

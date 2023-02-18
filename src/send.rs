@@ -19,7 +19,7 @@ states! {
         new(request: SendRequest) {
             let ctx = ui.ctx().clone();
             let (future, controller) = send(request.clone(), move || ctx.request_repaint());
-            (future, controller, request)
+            (Box::pin(future), controller, request)
         }
         next {
             Ok(_) => Complete(request),

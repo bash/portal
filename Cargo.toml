@@ -15,22 +15,23 @@ name = "portal"
 path = "src/main.rs"
 
 [dependencies]
+async-std = "1.12.0"
 eframe = { version = "0.20.1", features = ["dark-light", "persistence"] }
 egui = { version = "0.20.1" }
 futures = "0.3.26"
 opener = "0.5.2"
-poll-promise = { version = "0.2.0", features = ["tokio"] }
+poll-promise = { version = "0.2.0", features = ["async-std"] }
 portal-proc-macro = { path = "crates/portal-proc-macro" }
 portal-wormhole = { path = "crates/portal-wormhole" }
 rfd = "0.11.0"
 take_mut = "0.2.2"
-tokio = { version = "1.25.0", features = ["rt", "macros"] }
 tracing-subscriber = "0.3"
 ubyte = "0.10.3"
 
 [patch.crates-io]
 eframe = { git = "https://github.com/emilk/egui.git" }
 egui = { git = "https://github.com/emilk/egui.git" }
+poll-promise = { git = "https://github.com/bash/poll-promise", branch = "async-std" }
 
 [workspace]
 members = [

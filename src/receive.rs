@@ -57,7 +57,7 @@ states! {
             let filename = receive_request.filename().to_owned();
             let ctx = ui.ctx().clone();
             let (future, controller) = receive_request.accept(move || ctx.request_repaint());
-            (future, controller, filename)
+            (Box::pin(future), controller, filename)
         }
         next {
             Ok(path) => Completed(path),

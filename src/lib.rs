@@ -29,12 +29,24 @@ pub enum View {
 
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        show_version(ctx);
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
                 view_switcher(ui, ui.next_auto_id(), &[View::Send, View::Receive], self);
             });
         });
     }
+}
+
+fn show_version(ctx: &egui::Context) {
+    egui::TopBottomPanel::bottom("bottom panel")
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.weak(env!("CARGO_PKG_VERSION"));
+            })
+        });
 }
 
 impl ViewSwitcher for PortalApp {

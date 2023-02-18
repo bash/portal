@@ -16,6 +16,7 @@ use single_value_channel as svc;
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tempfile::NamedTempFile;
 
 #[derive(Clone, Debug)]
 pub enum SendRequest {
@@ -95,6 +96,8 @@ async fn send_impl(
 ) -> Result<(), PortalError> {
     let (transit_info_receiver, transit_info_updater) = svc::channel();
 
+    let sendable_file = SendableFile::from_send_request(send_request)?;
+
     let wormhole = async {
         let (welcome, wormhole_future) = connect().await?;
         report(SendingProgress::Connected(welcome.code));
@@ -107,41 +110,56 @@ async fn send_impl(
 
     let wormhole = Abortable::new(wormhole, abort_registration).await??;
 
-    match send_request {
-        SendRequest::File(file_path) => {
-            send_file(
-                wormhole,
-                &file_path,
-                file_path.file_name().unwrap(),
-                progress_handler(transit_info_receiver, report.clone()),
-                transit_handler(transit_info_updater, report),
-                cancel,
-            )
-            .await
-        }
-        SendRequest::Folder(folder_path) => {
-            send_folder(
-                wormhole,
-                &folder_path,
-                progress_handler(transit_info_receiver, report.clone()),
-                transit_handler(transit_info_updater, report),
-                cancel,
-            )
-            .await
-        }
-        SendRequest::Selection(paths) => {
-            let zip = pack_selection_as_zip(&paths)?;
-            send_file(
-                wormhole,
-                zip.path(),
-                &selection_zip_file_name(&paths),
-                progress_handler(transit_info_receiver, report.clone()),
-                transit_handler(transit_info_updater, report),
-                cancel,
-            )
-            .await
+    send_file(
+        wormhole,
+        sendable_file,
+        progress_handler(transit_info_receiver, report.clone()),
+        transit_handler(transit_info_updater, report),
+        cancel,
+    )
+    .await
+}
+
+enum SendableFile {
+    Path(PathBuf),
+    Temporary(NamedTempFile, OsString),
+}
+
+impl SendableFile {
+    fn from_send_request(send_request: SendRequest) -> Result<SendableFile, PortalError> {
+        match send_request {
+            SendRequest::File(file_path) => Ok(SendableFile::Path(file_path)),
+            SendRequest::Folder(folder_path) => Ok(SendableFile::Temporary(
+                pack_folder_as_zip(&folder_path)?,
+                folder_zip_file_name(&folder_path),
+            )),
+            SendRequest::Selection(paths) => Ok(SendableFile::Temporary(
+                pack_selection_as_zip(&paths)?,
+                selection_zip_file_name(&paths),
+            )),
         }
     }
+
+    fn path(&self) -> &Path {
+        match self {
+            SendableFile::Path(path) => path,
+            SendableFile::Temporary(file, _) => file.path(),
+        }
+    }
+
+    fn file_name(&self) -> &OsStr {
+        match self {
+            SendableFile::Path(path) => path.file_name().unwrap(),
+            SendableFile::Temporary(_, file_name) => file_name,
+        }
+    }
+}
+
+fn folder_zip_file_name(folder_path: &Path) -> OsString {
+    folder_path
+        .file_name()
+        .map(|p| concat_os_strs(p, ".zip"))
+        .unwrap_or_else(|| OsString::from("Folder.zip"))
 }
 
 fn selection_zip_file_name(paths: &[PathBuf]) -> OsString {
@@ -207,13 +225,12 @@ fn progress_handler(
 
 async fn send_file(
     wormhole: Wormhole,
-    path: &Path,
-    file_name: &OsStr,
+    sendable_file: SendableFile,
     progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
     cancel: impl Future<Output = ()>,
 ) -> Result<(), PortalError> {
-    let mut file = File::open(&path).await?;
+    let mut file = File::open(sendable_file.path()).await?;
     let metadata = file.metadata().await?;
     let file_size = metadata.len();
 
@@ -222,7 +239,7 @@ async fn send_file(
         wormhole,
         RELAY_HINTS.clone(),
         &mut file,
-        file_name,
+        sendable_file.file_name(),
         file_size,
         Abilities::ALL_ABILITIES,
         transit_handler,
@@ -239,27 +256,6 @@ async fn send_file(
     } else {
         Ok(())
     }
-}
-
-async fn send_folder(
-    wormhole: Wormhole,
-    path: &Path,
-    progress_handler: impl ProgressHandler,
-    transit_handler: impl TransitHandler,
-    cancel: impl Future<Output = ()>,
-) -> Result<(), PortalError> {
-    let zip_archive = pack_folder_as_zip(path)?;
-    let mut file_name = path.file_name().unwrap().to_owned();
-    file_name.push(".zip");
-    send_file(
-        wormhole,
-        zip_archive.path(),
-        &file_name,
-        progress_handler,
-        transit_handler,
-        cancel,
-    )
-    .await
 }
 
 async fn connect() -> Result<

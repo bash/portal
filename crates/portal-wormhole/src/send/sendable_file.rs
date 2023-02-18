@@ -1,26 +1,33 @@
 use super::SendRequest;
+use crate::sync::CancellationReceiver;
 use crate::temp_zip::{pack_folder_as_zip, pack_selection_as_zip};
 use crate::PortalError;
+use async_std::task::spawn_blocking;
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 
 pub enum SendableFile {
     Path(PathBuf),
-    Temporary(NamedTempFile, OsString),
+    Temporary(OsString, NamedTempFile),
 }
 
 impl SendableFile {
-    pub fn from_send_request(send_request: SendRequest) -> Result<SendableFile, PortalError> {
+    /// Note that cancelling this future may not cancel the background work
+    /// immediately as the packing functions only accept cancellation in between files.
+    pub async fn from_send_request(
+        send_request: SendRequest,
+        cancellation: CancellationReceiver,
+    ) -> Result<SendableFile, PortalError> {
         match send_request {
             SendRequest::File(file_path) => Ok(SendableFile::Path(file_path)),
             SendRequest::Folder(folder_path) => Ok(SendableFile::Temporary(
-                pack_folder_as_zip(&folder_path)?,
                 folder_zip_file_name(&folder_path),
+                spawn_blocking(move || pack_folder_as_zip(&folder_path, &cancellation)).await?,
             )),
             SendRequest::Selection(paths) => Ok(SendableFile::Temporary(
-                pack_selection_as_zip(&paths)?,
                 selection_zip_file_name(&paths),
+                spawn_blocking(move || pack_selection_as_zip(&paths, &cancellation)).await?,
             )),
         }
     }
@@ -28,14 +35,14 @@ impl SendableFile {
     pub fn path(&self) -> &Path {
         match self {
             SendableFile::Path(path) => path,
-            SendableFile::Temporary(file, _) => file.path(),
+            SendableFile::Temporary(_, file) => file.path(),
         }
     }
 
     pub fn file_name(&self) -> &OsStr {
         match self {
             SendableFile::Path(path) => path.file_name().unwrap(),
-            SendableFile::Temporary(_, file_name) => file_name,
+            SendableFile::Temporary(file_name, _) => file_name,
         }
     }
 }

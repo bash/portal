@@ -1,5 +1,6 @@
 use self::sendable_file::SendableFile;
 use crate::error::PortalError;
+use crate::sync::{cancellation_pair, CancellationReceiver, CancellationSender};
 use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
@@ -30,11 +31,15 @@ pub fn send(
         svc::channel_starting_with(SendingProgress::Connecting);
     let (cancel_sender, cancel_receiver) = oneshot::channel();
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
+    let (pack_abort_handle, pack_abort_registration) = AbortHandle::new_pair();
+    let (cancellation_sender, cancellation_receiver) = cancellation_pair();
 
     let controller = SendingController {
         progress_receiver,
         cancel_sender: Some(cancel_sender),
         abort_handle,
+        pack_abort_handle,
+        cancellation_sender,
     };
 
     let future = send_impl(
@@ -42,6 +47,8 @@ pub fn send(
         report(progress_updater, request_repaint),
         async { _ = cancel_receiver.await },
         abort_registration,
+        pack_abort_registration,
+        cancellation_receiver,
     );
 
     (future, controller)
@@ -51,6 +58,8 @@ pub struct SendingController {
     progress_receiver: svc::Receiver<SendingProgress>,
     cancel_sender: Option<oneshot::Sender<()>>,
     abort_handle: AbortHandle,
+    pack_abort_handle: AbortHandle,
+    cancellation_sender: CancellationSender,
 }
 
 pub enum SendingProgress {
@@ -69,6 +78,8 @@ impl SendingController {
     pub fn cancel(&mut self) {
         self.abort_handle.abort();
         self.cancel_sender.take().map(|c| c.send(()));
+        self.pack_abort_handle.abort();
+        self.cancellation_sender.cancel();
     }
 }
 
@@ -77,11 +88,17 @@ async fn send_impl(
     mut report: impl Reporter,
     cancel: impl Future<Output = ()>,
     abort_registration: AbortRegistration,
+    pack_abort_registration: AbortRegistration,
+    cancellation_receiver: CancellationReceiver,
 ) -> Result<(), PortalError> {
     let (transit_info_receiver, transit_info_updater) = svc::channel();
 
     report(SendingProgress::Packing);
-    let sendable_file = SendableFile::from_send_request(send_request)?;
+    let sendable_file = Abortable::new(
+        SendableFile::from_send_request(send_request, cancellation_receiver),
+        pack_abort_registration,
+    )
+    .await??;
 
     report(SendingProgress::Connecting);
     let wormhole = async {

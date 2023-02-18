@@ -1,3 +1,4 @@
+use crate::sync::CancellationReceiver;
 use crate::PortalError;
 use std::borrow::Cow;
 use std::fs::{self, File};
@@ -9,11 +10,16 @@ use zip::write::FileOptions;
 use zip::ZipWriter;
 
 /// Packs a folder as a Zip file recursively.
-pub fn pack_folder_as_zip(folder_path: &Path) -> Result<NamedTempFile, PortalError> {
+pub fn pack_folder_as_zip(
+    folder_path: &Path,
+    cancellation: &CancellationReceiver,
+) -> Result<NamedTempFile, PortalError> {
+    cancellation.propagate()?;
+
     let mut temp_file = NamedTempFile::new()?;
     {
         let mut writer = ZipWriter::new(&mut temp_file);
-        add_folder_to_zip(folder_path, None, &mut writer)?;
+        add_folder_to_zip(folder_path, None, &mut writer, cancellation)?;
     }
     Ok(temp_file)
 }
@@ -22,12 +28,17 @@ pub fn pack_folder_as_zip(folder_path: &Path) -> Result<NamedTempFile, PortalErr
 ///
 /// Note that this function does not handle duplicate entries as this should be a rare case
 /// (it requires selecting files across multiple directories).
-pub fn pack_selection_as_zip(paths: &[PathBuf]) -> Result<NamedTempFile, PortalError> {
+pub fn pack_selection_as_zip(
+    paths: &[PathBuf],
+    cancellation: &CancellationReceiver,
+) -> Result<NamedTempFile, PortalError> {
+    cancellation.propagate()?;
+
     let mut temp_file = NamedTempFile::new()?;
     {
         let mut writer = ZipWriter::new(&mut temp_file);
         for path in paths {
-            add_path_to_zip(path, None, &mut writer)?;
+            add_path_to_zip(path, None, &mut writer, cancellation)?;
         }
     }
     Ok(temp_file)
@@ -40,18 +51,26 @@ fn add_path_to_zip<W>(
     path: &Path,
     relative_path: Option<&Path>,
     writer: &mut ZipWriter<W>,
+    cancellation: &CancellationReceiver,
 ) -> Result<(), PortalError>
 where
     W: Write + Seek,
 {
+    cancellation.propagate()?;
+
     let relative_path = relative_path.unwrap_or_else(|| Path::new(path.file_name().unwrap()));
 
     if path.is_dir() {
-        add_folder_to_zip(path, Some(relative_path), writer)?;
+        add_folder_to_zip(path, Some(relative_path), writer, cancellation)?;
     } else if path.is_file() {
         add_file_to_zip(path, relative_path, writer)?;
     } else if path.is_symlink() {
-        add_path_to_zip(&std::fs::read_link(path)?, Some(relative_path), writer)?;
+        add_path_to_zip(
+            &std::fs::read_link(path)?,
+            Some(relative_path),
+            writer,
+            cancellation,
+        )?;
     } else {
         unreachable!("Path is either a file, a directory or a symlink");
     }
@@ -67,11 +86,16 @@ fn add_folder_to_zip<W>(
     folder_path: &Path,
     folder_relative_path: Option<&Path>,
     writer: &mut ZipWriter<W>,
+    cancellation: &CancellationReceiver,
 ) -> Result<(), PortalError>
 where
     W: Write + Seek,
 {
+    cancellation.propagate()?;
+
     for entry in WalkDir::new(folder_path).follow_links(true) {
+        cancellation.propagate()?;
+
         let entry = entry?;
         let relative_path =
             relative_path_for_entry_in_folder(folder_path, folder_relative_path, entry.path());

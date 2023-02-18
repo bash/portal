@@ -1,5 +1,5 @@
+use self::sendable_file::SendableFile;
 use crate::error::PortalError;
-use crate::temp_zip::{pack_folder_as_zip, pack_selection_as_zip};
 use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
@@ -13,28 +13,11 @@ use magic_wormhole::{
     Wormhole, WormholeWelcome,
 };
 use single_value_channel as svc;
-use std::ffi::{OsStr, OsString};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tempfile::NamedTempFile;
 
-#[derive(Clone, Debug)]
-pub enum SendRequest {
-    File(PathBuf),
-    Folder(PathBuf),
-    Selection(Vec<PathBuf>),
-}
-
-impl SendRequest {
-    pub fn from_paths(paths: Vec<PathBuf>) -> Option<Self> {
-        match paths.len() {
-            0 => None,
-            1 if paths[0].is_dir() => Some(SendRequest::Folder(paths[0].clone())),
-            1 => Some(SendRequest::File(paths[0].clone())),
-            _ => Some(SendRequest::Selection(paths)),
-        }
-    }
-}
+mod request;
+pub use self::request::SendRequest;
+mod sendable_file;
 
 pub fn send(
     send_request: SendRequest,
@@ -121,73 +104,6 @@ async fn send_impl(
         cancel,
     )
     .await
-}
-
-enum SendableFile {
-    Path(PathBuf),
-    Temporary(NamedTempFile, OsString),
-}
-
-impl SendableFile {
-    fn from_send_request(send_request: SendRequest) -> Result<SendableFile, PortalError> {
-        match send_request {
-            SendRequest::File(file_path) => Ok(SendableFile::Path(file_path)),
-            SendRequest::Folder(folder_path) => Ok(SendableFile::Temporary(
-                pack_folder_as_zip(&folder_path)?,
-                folder_zip_file_name(&folder_path),
-            )),
-            SendRequest::Selection(paths) => Ok(SendableFile::Temporary(
-                pack_selection_as_zip(&paths)?,
-                selection_zip_file_name(&paths),
-            )),
-        }
-    }
-
-    fn path(&self) -> &Path {
-        match self {
-            SendableFile::Path(path) => path,
-            SendableFile::Temporary(file, _) => file.path(),
-        }
-    }
-
-    fn file_name(&self) -> &OsStr {
-        match self {
-            SendableFile::Path(path) => path.file_name().unwrap(),
-            SendableFile::Temporary(_, file_name) => file_name,
-        }
-    }
-}
-
-fn folder_zip_file_name(folder_path: &Path) -> OsString {
-    folder_path
-        .file_name()
-        .map(|p| concat_os_strs(p, ".zip"))
-        .unwrap_or_else(|| OsString::from("Folder.zip"))
-}
-
-fn selection_zip_file_name(paths: &[PathBuf]) -> OsString {
-    common_parent_directory(paths)
-        .and_then(|p| p.file_name())
-        .map(|p| concat_os_strs(p, ".zip"))
-        .unwrap_or_else(|| OsString::from("Selection.zip"))
-}
-
-fn concat_os_strs(a: impl AsRef<OsStr>, b: impl AsRef<OsStr>) -> OsString {
-    let a = a.as_ref();
-    let b = b.as_ref();
-    let mut result = OsString::with_capacity(a.len() + b.len());
-    result.push(a);
-    result.push(b);
-    result
-}
-
-fn common_parent_directory(paths: &[PathBuf]) -> Option<&Path> {
-    let parent = paths.first()?.parent()?;
-    paths
-        .iter()
-        .skip(1)
-        .all(|p| p.parent() == Some(parent))
-        .then_some(parent)
 }
 
 trait Reporter = FnMut(SendingProgress) + Clone + 'static;

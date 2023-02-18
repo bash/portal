@@ -1,6 +1,6 @@
 use crate::PortalError;
 use std::borrow::Cow;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Seek, Write};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
@@ -116,8 +116,16 @@ fn add_file_to_zip<W>(
 where
     W: Write + Seek,
 {
-    writer.start_file(relative_path.to_string_lossy(), FileOptions::default())?;
+    writer.start_file(relative_path.to_string_lossy(), file_options(source_path)?)?;
     let mut reader = File::open(source_path)?;
     io::copy(&mut reader, writer)?;
     Ok(())
+}
+
+fn file_options(path: &Path) -> Result<FileOptions, PortalError> {
+    // Files >= 4 GiB require large_file
+    let file_size = fs::metadata(path)?.len();
+    let large_file = file_size > u32::MAX as u64;
+
+    Ok(FileOptions::default().large_file(large_file))
 }

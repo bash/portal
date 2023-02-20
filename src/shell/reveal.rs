@@ -17,7 +17,7 @@ mod windows {
         Command::new("explorer.exe")
             .arg("/select,")
             .arg(path.as_ref())
-            .output()?;
+            .spawn()?;
         Ok(())
     }
 }
@@ -32,7 +32,7 @@ mod macos {
             .arg("-R")
             .arg("--")
             .arg(path.as_ref())
-            .output()?;
+            .spawn()?;
         Ok(())
     }
 }

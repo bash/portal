@@ -25,5 +25,8 @@
         <array>
             <string>MacOSX</string>
         </array>
+        <!-- Automatically quarantines all files downloaded by this app. -->
+        <key>LSFileQuarantineEnabled</key>
+		<true/>
     </dict>
 </plist>

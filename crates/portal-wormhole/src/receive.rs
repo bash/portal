@@ -1,3 +1,4 @@
+use crate::fs::mark_as_downloaded;
 use crate::transit::{
     progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
 };
@@ -173,6 +174,7 @@ async fn accept(
         file_name,
         persist_temp_file,
     )?;
+    mark_as_downloaded(&persisted_path);
 
     Ok(persisted_path)
 }

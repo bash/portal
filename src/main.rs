@@ -3,8 +3,7 @@
 use eframe::egui::{self};
 use portal::PortalApp;
 
-#[async_std::main]
-async fn main() -> Result<(), eframe::Error> {
+fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 

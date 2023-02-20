@@ -1,4 +1,5 @@
 use crate::egui_ext::ContextExt;
+use crate::shell::{open, reveal};
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
 use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
@@ -277,7 +278,7 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
                 .add(Button::new("Open File").min_size(MIN_BUTTON_SIZE))
                 .clicked()
             {
-                _ = opener::open(downloaded_path);
+                _ = open(downloaded_path);
             }
 
             ui.add_space(5.0);
@@ -286,7 +287,7 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
                 .add(Button::new("Show in Folder").min_size(MIN_BUTTON_SIZE))
                 .clicked()
             {
-                _ = crate::utils::open_file_in_folder(downloaded_path);
+                _ = reveal(downloaded_path);
             }
         },
     );

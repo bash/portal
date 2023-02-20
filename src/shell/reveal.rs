@@ -9,10 +9,11 @@ pub use self::linux::*;
 
 #[cfg(target_os = "windows")]
 mod windows {
+    use std::io;
+    use std::path::Path;
     use std::process::Command;
-    use std::{io, path::Path};
 
-    pub fn open_file_in_folder(path: impl AsRef<Path>) -> Result<(), io::Error> {
+    pub fn reveal(path: impl AsRef<Path>) -> Result<(), io::Error> {
         Command::new("explorer.exe")
             .arg("/select,")
             .arg(path.as_ref())
@@ -26,7 +27,7 @@ mod macos {
     use std::process::Command;
     use std::{io, path::Path};
 
-    pub fn open_file_in_folder(path: impl AsRef<Path>) -> Result<(), io::Error> {
+    pub fn reveal(path: impl AsRef<Path>) -> Result<(), io::Error> {
         Command::new("open")
             .arg("-R")
             .arg("--")
@@ -40,7 +41,7 @@ mod macos {
 mod linux {
     use std::{io, path::Path};
 
-    pub fn open_file_in_folder(_path: impl AsRef<Path>) -> Result<(), io::Error> {
+    pub fn reveal(_path: impl AsRef<Path>) -> Result<(), io::Error> {
         // TODO: Support linux: https://gitlab.gnome.org/World/pika-backup/-/blob/main/src/ui/page_archives/display.rs#L63
         unimplemented!()
     }

@@ -2551,6 +2551,7 @@ dependencies = [
  "take_mut",
  "tracing-subscriber",
  "ubyte",
+ "winapi",
 ]
 
 [[package]]

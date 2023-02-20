@@ -11,8 +11,8 @@ use widgets::{view_switcher, ViewSwitcher};
 mod egui_ext;
 mod receive;
 mod send;
+mod shell;
 mod transit_info;
-mod utils;
 mod widgets;
 
 #[derive(Default)]
@@ -44,6 +44,9 @@ fn show_version(ctx: &egui::Context) {
         .show_separator_line(false)
         .show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                #[cfg(debug_assertions)]
+                ui.weak("dev");
+                #[cfg(not(debug_assertions))]
                 ui.weak(env!("CARGO_PKG_VERSION"));
             })
         });

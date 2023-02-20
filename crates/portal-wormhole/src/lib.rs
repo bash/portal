@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 #![feature(trait_alias)]
+#![feature(path_as_mut_os_str)]
 
 mod error;
 pub mod receive;

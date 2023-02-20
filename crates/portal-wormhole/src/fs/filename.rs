@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
-use std::path::{Path};
+use std::path::Path;
 
 pub struct Filename<'a> {
     stem: Cow<'a, OsStr>,

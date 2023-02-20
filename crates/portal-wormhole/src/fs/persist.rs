@@ -1,7 +1,7 @@
+use super::Filename;
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
-use super::Filename;
 
 pub enum PersistResult<T> {
     Ok,

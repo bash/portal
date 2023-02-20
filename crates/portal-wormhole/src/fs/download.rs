@@ -8,7 +8,7 @@ pub use self::windows::*;
 mod generic {
     use std::path::Path;
 
-    pub fn mark_as_downloaded(_path: &Path) { }
+    pub fn mark_as_downloaded(_path: &Path) {}
 }
 
 mod macos {
@@ -31,9 +31,9 @@ mod windows {
     //!
     //! ["Security Zones"]: https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/ms537183(v=vs.85)
     //! [`Zone.Identifier`]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/6e3f7352-d11c-4d76-8c39-2516a9df36e8
+    use std::fs::OpenOptions;
     use std::io::{self, Write};
     use std::path::Path;
-    use std::fs::OpenOptions;
 
     /// The value 3 corresponds with the Internet Zone.
     const ZONE_IDENTIFIER_CONTENTS: &str = "[ZoneTransfer]\r\nZoneId=3";
@@ -44,12 +44,12 @@ mod windows {
 
     fn mark_as_downloaded_impl(path: &Path) -> io::Result<()> {
         let mut stream_path = path.to_owned();
-        stream_path.push(":Zone.Identifier");
+        stream_path.as_mut_os_string().push(":Zone.Identifier");
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .open(stream_path)?;
-        write!(file, "{}", ZONE_IDENTIFIER_CONTENTS)?;
+        write!(file, "{ZONE_IDENTIFIER_CONTENTS}")?;
         Ok(())
     }
 }

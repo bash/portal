@@ -11,6 +11,7 @@ async fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(320.0, 500.0)),
         follow_system_theme: true,
+        run_and_return: false,
         ..Default::default()
     };
     eframe::run_native(

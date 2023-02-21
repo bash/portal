@@ -10,7 +10,7 @@ pub struct Filename<'a> {
 impl<'a> Filename<'a> {
     pub fn with_counter(&self, counter: u64) -> Filename<'a> {
         let mut stem = self.stem.clone().into_owned();
-        stem.push(&format!(" ({counter})"));
+        stem.push(format!(" ({counter})"));
         Filename {
             stem: Cow::Owned(stem),
             extension: self.extension,

@@ -1,7 +1,3 @@
-#![feature(if_let_guard)]
-#![feature(let_chains)]
-#![feature(concat_idents)]
-
 use egui::emath::Align;
 use egui::{self, Color32, Layout, RichText};
 use receive::ReceiveView;

@@ -12,7 +12,8 @@ mod sync;
 mod temp_zip;
 mod transit;
 
-pub use magic_wormhole::{transit::TransitInfo, Code};
+pub use magic_wormhole::transit::TransitInfo;
+pub use magic_wormhole::Code;
 
 pub trait RequestRepaint = FnMut() + Clone + Send + Sync + 'static;
 

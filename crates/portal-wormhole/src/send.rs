@@ -7,12 +7,8 @@ use async_std::fs::File;
 use futures::channel::oneshot;
 use futures::future::{AbortHandle, AbortRegistration, Abortable, BoxFuture};
 use futures::Future;
-use magic_wormhole::Code;
-use magic_wormhole::{
-    transfer,
-    transit::{Abilities, TransitInfo},
-    Wormhole, WormholeWelcome,
-};
+use magic_wormhole::transit::{Abilities, TransitInfo};
+use magic_wormhole::{transfer, Code, Wormhole, WormholeWelcome};
 use single_value_channel as svc;
 use std::sync::Arc;
 

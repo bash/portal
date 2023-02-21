@@ -1,21 +1,20 @@
-use crate::fs::mark_as_downloaded;
+use crate::error::PortalError;
+use crate::fs::{
+    mark_as_downloaded, persist_temp_file, persist_with_conflict_resolution,
+    sanitize_untrusted_filename,
+};
+use crate::sync::BorrowingOneshotReceiver;
 use crate::transit::{
     progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
 };
-use crate::{
-    error::PortalError,
-    fs::{persist_temp_file, persist_with_conflict_resolution, sanitize_untrusted_filename},
-    sync::BorrowingOneshotReceiver,
-};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
+use futures::channel::oneshot;
 use futures::future::{AbortHandle, AbortRegistration, Abortable};
-use futures::{channel::oneshot, Future};
-use magic_wormhole::{
-    transfer::{self, ReceiveRequest},
-    transit::{Abilities, TransitInfo},
-    Code, Wormhole,
-};
+use futures::Future;
+use magic_wormhole::transfer::{self, ReceiveRequest};
+use magic_wormhole::transit::{Abilities, TransitInfo};
+use magic_wormhole::{Code, Wormhole};
 use single_value_channel as svc;
 use std::path::{Path, PathBuf};
 

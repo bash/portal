@@ -2,7 +2,9 @@ use crate::egui_ext::ContextExt;
 use crate::shell::{open, reveal};
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
-use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
+use crate::widgets::{
+    cancel_button, page, page_with_content, CancelLabel, PrimaryButton, MIN_BUTTON_SIZE,
+};
 use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
 use egui::Key;
 use portal_proc_macro::states;
@@ -157,7 +159,7 @@ fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageR
 
             ui.add_enabled_ui(!input_empty, |ui| {
                 if ui
-                    .add(Button::new("Receive File").min_size(MIN_BUTTON_SIZE))
+                    .add(PrimaryButton::new("Receive File").min_size(MIN_BUTTON_SIZE))
                     .clicked()
                 {
                     Some(ReceivePageResponse::Connect)
@@ -208,7 +210,7 @@ fn show_connected_page(
 
     page_with_content(ui, "Receive File", text, "📥", |ui| {
         if ui
-            .add(Button::new("Accept").min_size(MIN_BUTTON_SIZE))
+            .add(PrimaryButton::new("Accept").min_size(MIN_BUTTON_SIZE))
             .clicked()
         {
             return Some(ConnectedPageResponse::Accept);
@@ -275,7 +277,7 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
         "✅",
         |ui| {
             if ui
-                .add(Button::new("Open File").min_size(MIN_BUTTON_SIZE))
+                .add(PrimaryButton::new("Open File").min_size(MIN_BUTTON_SIZE))
                 .clicked()
             {
                 _ = open(downloaded_path);

@@ -1,6 +1,8 @@
 use crate::egui_ext::ContextExt;
 use crate::transit_info::TransitInfoDisplay;
-use crate::widgets::{cancel_button, page, page_with_content, CancelLabel, MIN_BUTTON_SIZE};
+use crate::widgets::{
+    cancel_button, page, page_with_content, CancelLabel, PrimaryButton, MIN_BUTTON_SIZE,
+};
 use eframe::egui::{Button, Key, Modifiers, ProgressBar, Ui};
 use egui::{InputState, RichText};
 use portal_proc_macro::states;
@@ -70,7 +72,7 @@ impl SendView {
     }
 
     fn show_file_selection(&mut self, ui: &mut Ui) {
-        let select_file_button = Button::new("Select File").min_size(MIN_BUTTON_SIZE);
+        let select_file_button = PrimaryButton::new("Select File").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_file_button).clicked()
             || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::O))
         {

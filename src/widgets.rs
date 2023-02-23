@@ -4,7 +4,9 @@ mod page;
 pub use self::page::*;
 mod tab_button;
 pub use self::tab_button::*;
+mod primary_button;
 mod view_switcher;
+pub use self::primary_button::*;
 use egui::Vec2;
 pub use view_switcher::*;
 

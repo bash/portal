@@ -1,5 +1,5 @@
 use crate::egui_ext::ContextExt;
-use crate::shell::{open, reveal};
+use crate::shell::open;
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
 use crate::widgets::{
@@ -7,6 +7,7 @@ use crate::widgets::{
 };
 use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
 use egui::Key;
+use opener::reveal;
 use portal_proc_macro::states;
 use portal_wormhole::receive::{
     connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,

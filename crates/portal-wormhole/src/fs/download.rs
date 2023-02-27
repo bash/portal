@@ -15,7 +15,7 @@ mod macos {
     //! On macOS the file is marked as quarantined, because we have
     //! `LSFileQuarantineEnabled` set to `true` in our app's `Info.plist`.
     //!
-    //! See: https://ilostmynotes.blogspot.com/2012/06/gatekeeper-xprotect-and-quarantine.html
+    //! See: <https://ilostmynotes.blogspot.com/2012/06/gatekeeper-xprotect-and-quarantine.html>
 }
 
 #[cfg(target_os = "windows")]

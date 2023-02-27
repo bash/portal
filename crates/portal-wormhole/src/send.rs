@@ -13,14 +13,14 @@ use single_value_channel as svc;
 use std::sync::Arc;
 
 mod request;
-pub use self::request::SendRequest;
+pub use self::request::{CachedSendRequest, SendRequest};
 mod sendable_file;
 
 pub fn send(
     send_request: SendRequest,
     request_repaint: impl RequestRepaint,
 ) -> (
-    impl Future<Output = Result<(), PortalError>>,
+    impl Future<Output = Result<(), (PortalError, SendRequest)>>,
     SendingController,
 ) {
     let (progress_receiver, progress_updater) =
@@ -86,15 +86,27 @@ async fn send_impl(
     abort_registration: AbortRegistration,
     pack_abort_registration: AbortRegistration,
     cancellation_receiver: CancellationReceiver,
-) -> Result<(), PortalError> {
-    let (transit_info_receiver, transit_info_updater) = svc::channel();
-
+) -> Result<(), (PortalError, SendRequest)> {
     report(SendingProgress::Packing);
     let sendable_file = Abortable::new(
-        SendableFile::from_send_request(send_request, cancellation_receiver),
+        SendableFile::from_send_request(send_request.clone(), cancellation_receiver),
         pack_abort_registration,
     )
-    .await??;
+    .await
+    .with_send_request(send_request.clone())?
+    .with_send_request(send_request.clone())?;
+    send_impl_with_sendable_file(&sendable_file, report, cancel, abort_registration)
+        .await
+        .with_send_request(SendRequest::new_cached(sendable_file, send_request))
+}
+
+async fn send_impl_with_sendable_file(
+    sendable_file: &SendableFile,
+    mut report: impl Reporter,
+    cancel: impl Future<Output = ()>,
+    abort_registration: AbortRegistration,
+) -> Result<(), PortalError> {
+    let (transit_info_receiver, transit_info_updater) = svc::channel();
 
     report(SendingProgress::Connecting);
     let wormhole = async {
@@ -157,7 +169,7 @@ fn progress_handler(
 
 async fn send_file(
     wormhole: Wormhole,
-    sendable_file: SendableFile,
+    sendable_file: &SendableFile,
     progress_handler: impl ProgressHandler,
     transit_handler: impl TransitHandler,
     cancel: impl Future<Output = ()>,
@@ -199,4 +211,17 @@ async fn connect() -> Result<
 > {
     let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
     Ok((welcome, Box::pin(async { Ok(future.await?) })))
+}
+
+trait ResultExt<T> {
+    fn with_send_request(self, send_request: SendRequest) -> Result<T, (PortalError, SendRequest)>;
+}
+
+impl<T, E> ResultExt<T> for Result<T, E>
+where
+    E: Into<PortalError>,
+{
+    fn with_send_request(self, send_request: SendRequest) -> Result<T, (PortalError, SendRequest)> {
+        self.map_err(|error| (error.into(), send_request))
+    }
 }

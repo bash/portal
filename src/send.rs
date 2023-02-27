@@ -1,5 +1,6 @@
 use crate::egui_ext::ContextExt;
 use crate::transit_info::TransitInfoDisplay;
+use crate::update;
 use crate::widgets::{
     cancel_button, page, page_with_content, CancelLabel, PrimaryButton, MIN_BUTTON_SIZE,
 };
@@ -17,7 +18,7 @@ states! {
 
     state Ready();
 
-    async state Sending(controller: SendingController, request: SendRequest) -> Result<(), PortalError> {
+    async state Sending(controller: SendingController, request: SendRequest) -> Result<(), (PortalError, SendRequest)> {
         new(request: SendRequest) {
             let ctx = ui.ctx().clone();
             let (future, controller) = send(request.clone(), move || ctx.request_repaint());
@@ -25,12 +26,12 @@ states! {
         }
         next {
             Ok(_) => Complete(request),
-            Err(PortalError::Canceled) => SendView::default(),
-            Err(error) => Error(error),
+            Err((PortalError::Canceled, _)) => SendView::default(),
+            Err((error, send_request)) => Error(error, send_request),
         }
     }
 
-    state Error(error: PortalError);
+    state Error(error: PortalError, send_request: SendRequest);
 
     state Complete(request: SendRequest);
 }
@@ -54,7 +55,7 @@ impl SendView {
             SendView::Sending(_, ref mut controller, ref send_request) => {
                 show_transfer_progress(ui, controller, send_request)
             }
-            SendView::Error(ref error) => self.show_error_page(ui, error.to_string()),
+            SendView::Error(ref error, _) => self.show_error_page(ui, error.to_string()),
             SendView::Complete(ref send_request) => {
                 self.show_transfer_completed_page(ui, send_request.clone())
             }
@@ -99,7 +100,15 @@ impl SendView {
 
     fn show_error_page(&mut self, ui: &mut Ui, error: String) {
         self.back_button(ui);
-        page(ui, "File Transfer Failed", error, "❌");
+
+        page_with_content(ui, "File Transfer Failed", error, "❌", |ui| {
+            if ui.button("Retry").clicked() {
+                update!(
+                    self,
+                    SendView::Error(_, send_request) => SendView::new_sending(ui, send_request)
+                );
+            }
+        });
     }
 
     fn show_transfer_completed_page(&mut self, ui: &mut Ui, send_request: SendRequest) {
@@ -237,6 +246,9 @@ impl<'a> fmt::Display for SendRequestDisplay<'a> {
                 write!(f, "folder \"{}\"", filename_or_self(path).display())
             }
             SendRequest::Selection(_) => write!(f, "selection"),
+            SendRequest::Cached(orignal_request, _) => {
+                write!(f, "{}", SendRequestDisplay(orignal_request))
+            }
         }
     }
 }

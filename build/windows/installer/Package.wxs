@@ -7,9 +7,9 @@
         Scope="perUserOrMachine">
         <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
 
-        <Media Id="1" Cabinet="myapplication.cab" EmbedCab="yes" />
-
         <Property Id="ApplicationFolderName" Value="Portal" />
+
+        <MediaTemplate EmbedCab="yes"/>
 
         <!-- Installer Icon -->
         <Icon Id="icon.ico" SourceFile="..\..\..\target\icon.ico"/>

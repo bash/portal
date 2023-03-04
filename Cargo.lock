@@ -1769,7 +1769,7 @@ checksum = "d897f394bad6a705d5f4104762e116a75639e470d80901eed05a860a95cb1904"
 [[package]]
 name = "ico-builder"
 version = "0.1.0"
-source = "git+https://github.com/bash/ico-builder.git#ed4388becab32ceebb7ec0e0432ab84cef334791"
+source = "git+https://github.com/bash/ico-builder.git#832990115932f92e903af231e4b427a65f752482"
 dependencies = [
  "image",
  "thiserror",

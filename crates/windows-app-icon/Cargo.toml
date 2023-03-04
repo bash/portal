@@ -1,0 +1,8 @@
+[package]
+name = "windows-app-icon"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+image = { version = "0.24.5", default-features = false, features = ["ico"] }
+thiserror = "1.0.38"

@@ -1,8 +1,4 @@
 use std::error::Error;
-use windows_app_icon::cargo::build_ico_file;
-use windows_app_icon::IconSizes;
-use winresource::WindowsResource;
-
 fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
     build_windows()?;
@@ -11,6 +7,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(windows)]
 fn build_windows() -> Result<(), Box<dyn Error>> {
+    use windows_app_icon::cargo::build_ico_file;
+    use windows_app_icon::IconSizes;
+    use winresource::WindowsResource;
+
     let icon = build_ico_file(
         "windows-app-icon.ico",
         [

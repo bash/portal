@@ -11,7 +11,7 @@ pub(crate) struct CustomVisuals {
 impl CustomVisuals {
     pub(crate) fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         let theme = frame.info().system_theme.unwrap_or(Theme::Light);
-        if Some(theme) != self.current_theme {
+        if self.current_theme != Some(theme) {
             ctx.set_visuals(self.visuals(theme).clone());
             self.current_theme = Some(theme);
         }

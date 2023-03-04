@@ -7,18 +7,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(windows)]
 fn build_windows() -> Result<(), Box<dyn Error>> {
-    use windows_app_icon::cargo::build_ico_file;
-    use windows_app_icon::IconSizes;
+    use ico_builder::IcoBuilder;
     use winresource::WindowsResource;
 
-    let icon = build_ico_file(
-        "windows-app-icon.ico",
-        [
-            "build/windows/icon-32x32.png",
-            "build/windows/icon-1920x1920.png",
-        ],
-        IconSizes::MINIMAL,
-    )?;
+    let icon = IcoBuilder::default()
+        .source_file("build/windows/icon-32x32.png")
+        .source_file("build/windows/icon-1920x1920.png")
+        .build_file_cargo("windows-app-icon.ico")?;
     let mut res = WindowsResource::new();
     res.set_icon(icon.to_str().unwrap());
     res.compile()?;

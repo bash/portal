@@ -37,9 +37,8 @@ opener = { git = "https://github.com/bash/opener", branch = "reveal" }
 members = [
     "crates/portal-proc-macro",
     "crates/portal-wormhole",
-    "crates/windows-app-icon",
 ]
 
 [target.'cfg(windows)'.build-dependencies]
-windows-app-icon = { path = "crates/windows-app-icon" }
+ico-builder = { git = "https://github.com/bash/ico-builder.git" }
 winresource = "0.1.15"

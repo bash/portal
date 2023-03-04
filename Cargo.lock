@@ -1767,6 +1767,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d897f394bad6a705d5f4104762e116a75639e470d80901eed05a860a95cb1904"
 
 [[package]]
+name = "ico-builder"
+version = "0.1.0"
+source = "git+https://github.com/bash/ico-builder.git#ed4388becab32ceebb7ec0e0432ab84cef334791"
+dependencies = [
+ "image",
+ "thiserror",
+]
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2559,6 +2568,7 @@ dependencies = [
  "eframe",
  "egui",
  "futures",
+ "ico-builder",
  "opener",
  "poll-promise",
  "portal-proc-macro",
@@ -2568,7 +2578,6 @@ dependencies = [
  "tracing-subscriber",
  "ubyte",
  "winapi",
- "windows-app-icon",
  "winresource",
 ]
 
@@ -3947,14 +3956,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e745dab35a0c4c77aa3ce42d595e13d2003d6902d6b08c9ef5fc326d08da12b"
 dependencies = [
  "windows-targets",
-]
-
-[[package]]
-name = "windows-app-icon"
-version = "0.1.0"
-dependencies = [
- "image",
- "thiserror",
 ]
 
 [[package]]

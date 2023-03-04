@@ -2,6 +2,7 @@ use egui::emath::Align;
 use egui::{self, Color32, Layout, RichText};
 use receive::ReceiveView;
 use send::SendView;
+use visuals::CustomVisuals;
 use widgets::{view_switcher, ViewSwitcher};
 
 mod egui_ext;
@@ -9,12 +10,14 @@ mod receive;
 mod send;
 mod shell;
 mod transit_info;
+mod visuals;
 mod widgets;
 
 #[derive(Default)]
 pub struct PortalApp {
     send_view: SendView,
     receive_view: ReceiveView,
+    visuals: CustomVisuals,
 }
 
 #[derive(PartialEq)]
@@ -24,7 +27,8 @@ pub enum View {
 }
 
 impl eframe::App for PortalApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.visuals.update(ctx, frame);
         show_version(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {

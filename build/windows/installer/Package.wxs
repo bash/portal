@@ -12,7 +12,7 @@
         <Property Id="ApplicationFolderName" Value="Portal" />
 
         <!-- Installer Icon -->
-        <Icon Id="icon.ico" SourceFile="..\icon.ico"/>
+        <Icon Id="icon.ico" SourceFile="..\..\..\target\icon.ico"/>
         <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
         <!-- Sets the default installation folder -->

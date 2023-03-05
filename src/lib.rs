@@ -1,5 +1,5 @@
 use egui::emath::Align;
-use egui::{self, Color32, Layout};
+use egui::{self, Color32, Layout, RichText};
 use receive::ReceiveView;
 use send::SendView;
 use visuals::CustomVisuals;
@@ -50,7 +50,12 @@ impl eframe::App for PortalApp {
                 self.apply_style_overrides(view, ui.style_mut());
 
                 if self.show_switcher(view) {
-                    ui.add(toggle(&mut self.view_toggle, "📤 Send", "📥 Receive"));
+                    let font_size = 14.;
+                    ui.add(toggle(
+                        &mut self.view_toggle,
+                        RichText::new("📤 Send").size(font_size),
+                        RichText::new("📥 Receive").size(font_size),
+                    ));
                 }
 
                 self.ui(view, ui);

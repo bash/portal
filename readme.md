@@ -11,14 +11,14 @@ to download pre-built executables (there's even a Windows installer).
 ## Screenshots
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshots/receive-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="screenshots/receive-light.png">
-  <img alt="A screenshot of the Portal app in receive mode" src="screenshots/receive-light.png" width="300">
-</picture>
-<picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshots/send-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="screenshots/send-light.png">
   <img alt="A screenshot of the Portal app in send mode" src="screenshots/send-light.png" width="300">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/receive-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshots/receive-light.png">
+  <img alt="A screenshot of the Portal app in receive mode" src="screenshots/receive-light.png" width="300">
 </picture>
 
 ## License

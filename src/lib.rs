@@ -1,9 +1,9 @@
 use egui::emath::Align;
-use egui::{self, Color32, Layout, RichText};
+use egui::{self, Color32, Layout};
 use receive::ReceiveView;
 use send::SendView;
 use visuals::CustomVisuals;
-use widgets::{view_switcher, ViewSwitcher};
+use widgets::toggle;
 
 mod egui_ext;
 mod receive;
@@ -18,12 +18,23 @@ pub struct PortalApp {
     send_view: SendView,
     receive_view: ReceiveView,
     visuals: CustomVisuals,
+    view_toggle: bool,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum View {
     Send,
     Receive,
+}
+
+impl From<bool> for View {
+    fn from(value: bool) -> Self {
+        if value {
+            View::Receive
+        } else {
+            View::Send
+        }
+    }
 }
 
 impl eframe::App for PortalApp {
@@ -33,7 +44,16 @@ impl eframe::App for PortalApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                view_switcher(ui, ui.next_auto_id(), &[View::Send, View::Receive], self);
+                ui.add_space(12.);
+
+                let view = View::from(self.view_toggle);
+                self.apply_style_overrides(view, ui.style_mut());
+
+                if self.show_switcher(view) {
+                    ui.add(toggle(&mut self.view_toggle, "📤 Send", "📥 Receive"));
+                }
+
+                self.ui(view, ui);
             });
         });
     }
@@ -52,24 +72,8 @@ fn show_version(ctx: &egui::Context) {
         });
 }
 
-impl ViewSwitcher for PortalApp {
-    type View = View;
-
-    fn show_switcher(&self, view: &Self::View) -> bool {
-        match view {
-            View::Send => matches!(self.send_view, SendView::Ready(..)),
-            View::Receive => self.receive_view.show_switcher(),
-        }
-    }
-
-    fn label(&self, view: &Self::View) -> RichText {
-        match view {
-            View::Send => RichText::new("📤 Send"),
-            View::Receive => RichText::new("📥 Receive"),
-        }
-    }
-
-    fn apply_style_overrides(&self, view: &Self::View, style: &mut egui::Style) {
+impl PortalApp {
+    fn apply_style_overrides(&self, view: View, style: &mut egui::Style) {
         let (fill, stroke) = match view {
             View::Send if style.visuals.dark_mode => (from_hex(0xDB8400), from_hex(0x38270E)),
             View::Send => (from_hex(0xFF9D0A), from_hex(0x523A16)),
@@ -80,7 +84,14 @@ impl ViewSwitcher for PortalApp {
         style.visuals.selection.stroke.color = stroke;
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, view: &Self::View) {
+    fn show_switcher(&self, view: View) -> bool {
+        match view {
+            View::Send => matches!(self.send_view, SendView::Ready(..)),
+            View::Receive => self.receive_view.show_switcher(),
+        }
+    }
+
+    fn ui(&mut self, view: View, ui: &mut egui::Ui) {
         match view {
             View::Send => self.send_view.ui(ui),
             View::Receive => self.receive_view.ui(ui),

@@ -1127,6 +1127,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
+name = "dunce"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bd4b30a6560bbd9b4620f4de34c3f14f60848e58a9b7216801afcb4c7b31c3c"
+
+[[package]]
 name = "ecolor"
 version = "0.21.0"
 source = "git+https://github.com/bash/egui.git?branch=theme-changed#7930deb6930c2c1aaa271f0233cb891dd97c96c8"
@@ -1921,6 +1927,7 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f8d7ae751e1cb825c840ae5e682f59b098cdfd213c350ac268b61449a5f58a0"
 dependencies = [
+ "cc",
  "pkg-config",
 ]
 
@@ -2340,10 +2347,11 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "opener"
 version = "0.5.2"
-source = "git+https://github.com/bash/opener?branch=reveal#7cda21714fd16c6732b48444ce71eaac8e3f6578"
+source = "git+https://github.com/bash/opener?branch=reveal#ea96041b766b8b8bf55e60dcf3700afaea002a7b"
 dependencies = [
  "bstr",
  "dbus",
+ "dunce",
  "url",
  "winapi",
 ]

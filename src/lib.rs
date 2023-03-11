@@ -1,5 +1,6 @@
 use egui::emath::Align;
-use egui::{self, Color32, Layout, RichText};
+use egui::epaint::hex_color;
+use egui::{self, Layout, RichText};
 use receive::ReceiveView;
 use send::SendView;
 use visuals::CustomVisuals;
@@ -80,10 +81,12 @@ fn show_version(ctx: &egui::Context) {
 impl PortalApp {
     fn apply_style_overrides(&self, view: View, style: &mut egui::Style) {
         let (fill, stroke) = match view {
-            View::Send if style.visuals.dark_mode => (from_hex(0xDB8400), from_hex(0x38270E)),
-            View::Send => (from_hex(0xFF9D0A), from_hex(0x523A16)),
-            View::Receive if style.visuals.dark_mode => (from_hex(0x27A7D8), from_hex(0x183039)),
-            View::Receive => (from_hex(0x73CDF0), from_hex(0x183039)),
+            View::Send if style.visuals.dark_mode => (hex_color!("#DB8400"), hex_color!("#38270E")),
+            View::Send => (hex_color!("#FF9D0A"), hex_color!("#523A16")),
+            View::Receive if style.visuals.dark_mode => {
+                (hex_color!("#27A7D8"), hex_color!("#183039"))
+            }
+            View::Receive => (hex_color!("#73CDF0"), hex_color!("#183039")),
         };
         style.visuals.selection.bg_fill = fill;
         style.visuals.selection.stroke.color = stroke;
@@ -112,13 +115,4 @@ macro_rules! update {
             _ => target,
         });
     };
-}
-
-fn from_hex(hex: u32) -> Color32 {
-    assert!(hex < 1 << 24);
-    Color32::from_rgb(
-        (hex >> 16 & 0xFF) as u8,
-        (hex >> 8 & 0xFF) as u8,
-        (hex & 0xFF) as u8,
-    )
 }

@@ -1,5 +1,5 @@
-use crate::from_hex;
 use eframe::Theme;
+use egui::epaint::hex_color;
 use egui::{Context, Visuals};
 
 pub(crate) struct CustomVisuals {
@@ -37,7 +37,7 @@ impl Default for CustomVisuals {
 
 fn dark_visuals() -> Visuals {
     let mut visuals = Visuals::dark();
-    visuals.panel_fill = from_hex(0x121212);
-    visuals.widgets.inactive.weak_bg_fill = from_hex(0x292929);
+    visuals.panel_fill = hex_color!("#121212");
+    visuals.widgets.inactive.weak_bg_fill = hex_color!("#292929");
     visuals
 }

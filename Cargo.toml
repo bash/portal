@@ -15,8 +15,8 @@ path = "src/main.rs"
 [dependencies]
 async-std = "1.12.0"
 color-hex = "0.2.0"
-eframe = { version = "0.21.0", features = ["dark-light", "persistence"] }
-egui = { version = "0.21.0", features = ["color-hex"] }
+eframe = { version = "0.21.0", default-features = false, features = ["accesskit", "glow", "dark-light", "persistence"] }
+egui = { version = "0.21.0", default-features = false, features = ["color-hex"] }
 futures = "0.3.26"
 opener = { version = "0.5.2", features = ["reveal"] }
 poll-promise = { version = "0.2.0", features = ["async-std"] }

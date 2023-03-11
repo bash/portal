@@ -1,4 +1,5 @@
 use crate::egui_ext::ContextExt;
+use crate::font::{ICON_CHECK, ICON_CLIPBOARD_COPY, ICON_TICKET, ICON_UPLOAD, ICON_X};
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
 use crate::widgets::{
@@ -67,7 +68,7 @@ impl SendView {
             ui,
             "Send File",
             "Select or drop the file or directory to send.",
-            "📤",
+            ICON_UPLOAD,
             |ui| self.show_file_selection(ui),
         );
     }
@@ -101,7 +102,7 @@ impl SendView {
     fn show_error_page(&mut self, ui: &mut Ui, error: String) {
         self.back_button(ui);
 
-        page_with_content(ui, "File Transfer Failed", error, "❌", |ui| {
+        page_with_content(ui, "File Transfer Failed", error, ICON_X, |ui| {
             if ui.button("Retry").clicked() {
                 update!(
                     self,
@@ -118,7 +119,7 @@ impl SendView {
             ui,
             "File Transfer Successful",
             format!("Successfully sent {request_title}"),
-            "✅",
+            ICON_CHECK,
         );
     }
 
@@ -162,7 +163,7 @@ fn show_transfer_progress(
             ui,
             "Connected to Peer",
             format!("Preparing to send {}", SendRequestDisplay(send_request)),
-            "📤",
+            ICON_UPLOAD,
             |ui| {
                 ui.spinner();
             },
@@ -176,7 +177,7 @@ fn show_transfer_progress(
                     SendRequestDisplay(send_request),
                     TransitInfoDisplay(transit_info)
                 ),
-                "📤",
+                ICON_UPLOAD,
                 |ui| {
                     ui.add(ProgressBar::new((*sent as f64 / *total as f64) as f32).animate(true));
                 },
@@ -193,7 +194,7 @@ fn show_packing_progress(ui: &mut Ui, send_request: &SendRequest) {
             "Packing {} to a Zip file...",
             SendRequestDisplay(send_request)
         ),
-        "📤",
+        ICON_UPLOAD,
         |ui| {
             ui.spinner();
         },
@@ -205,7 +206,7 @@ fn show_transmit_code_progress(ui: &mut Ui) {
         ui,
         "Send File",
         "Generating transmit code...",
-        "📤",
+        ICON_UPLOAD,
         |ui| {
             ui.spinner();
         },
@@ -220,12 +221,12 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
             "Ready to send {}.\nThe receiver needs to enter this code to begin the file transfer.",
             SendRequestDisplay(send_request)
         ),
-        "✨",
+        ICON_TICKET,
         |ui| {
             ui.label(RichText::new(&code.0).size(15.).strong());
             ui.add_space(5.);
             if ui
-                .button("📋 Copy")
+                .button(format!("{ICON_CLIPBOARD_COPY} Copy"))
                 .on_hover_text("Click to copy")
                 .clicked()
                 || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::C))

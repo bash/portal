@@ -13,9 +13,5 @@ fn main() -> Result<(), eframe::Error> {
         run_and_return: false,
         ..Default::default()
     };
-    eframe::run_native(
-        "Portal",
-        options,
-        Box::new(|_cc| Box::<PortalApp>::default()),
-    )
+    eframe::run_native("Portal", options, Box::new(PortalApp::new_boxed))
 }

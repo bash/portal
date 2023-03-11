@@ -1,4 +1,5 @@
 use crate::egui_ext::ContextExt;
+use crate::font::{ICON_CHECK, ICON_DOWNLOAD, ICON_X};
 use crate::shell::open;
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
@@ -98,7 +99,7 @@ impl ReceiveView {
             ReceiveState::Error(error) => {
                 let error = error.to_string();
                 self.back_button(ui);
-                page(ui, "File Transfer Failed", error, "❌");
+                page(ui, "File Transfer Failed", error, ICON_X);
             }
             ReceiveState::Connected(ref receive_request) => {
                 if let Some(response) = show_connected_page(ui, receive_request) {
@@ -115,9 +116,15 @@ impl ReceiveView {
                 show_receiving_page(ui, controller, filename);
             }
             ReceiveState::Rejecting(_) => {
-                page_with_content(ui, "Receive File", "Rejecting File Transfer", "📥", |ui| {
-                    ui.spinner();
-                });
+                page_with_content(
+                    ui,
+                    "Receive File",
+                    "Rejecting File Transfer",
+                    ICON_DOWNLOAD,
+                    |ui| {
+                        ui.spinner();
+                    },
+                );
             }
             ReceiveState::Completed(downloaded_path) => {
                 if let Some(CompletedPageResponse::Back) = show_completed_page(ui, downloaded_path)
@@ -145,7 +152,7 @@ fn show_receive_file_page(ui: &mut Ui, code: &mut String) -> Option<ReceivePageR
         ui,
         "Receive File",
         "Enter the transmit code from the sender",
-        "📥",
+        ICON_DOWNLOAD,
         |ui| {
             if ui
                 .add(TextEdit::singleline(code).hint_text("Code"))
@@ -188,7 +195,7 @@ fn show_connecting_page(ui: &mut Ui, controller: &mut ConnectingController, code
         ui,
         "Receive File",
         format!("Connecting with peer using transfer code \"{code}\""),
-        "📥",
+        ICON_DOWNLOAD,
         |ui| {
             ui.spinner();
         },
@@ -209,7 +216,7 @@ fn show_connected_page(
         ByteDisplay(receive_request.filesize().bytes())
     );
 
-    page_with_content(ui, "Receive File", text, "📥", |ui| {
+    page_with_content(ui, "Receive File", text, ICON_DOWNLOAD, |ui| {
         if ui
             .add(PrimaryButton::new("Accept").min_size(MIN_BUTTON_SIZE))
             .clicked()
@@ -236,7 +243,7 @@ fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filena
             ui,
             "Receiving File",
             transit_info_message(transit_info, filename),
-            "📥",
+            ICON_DOWNLOAD,
             |ui| {
                 ui.add(ProgressBar::new((received as f64 / total as f64) as f32).animate(true));
             },
@@ -245,7 +252,7 @@ fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filena
             ui,
             "Connected to Peer",
             format!("Preparing to receive file \"{}\"", filename.display()),
-            "📥",
+            ICON_DOWNLOAD,
             |ui| {
                 ui.spinner();
             },
@@ -275,7 +282,7 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
             "File \"{}\" has been saved to your Downloads folder",
             filename.to_string_lossy()
         ),
-        "✅",
+        ICON_CHECK,
         |ui| {
             if ui
                 .add(PrimaryButton::new("Open File").min_size(MIN_BUTTON_SIZE))

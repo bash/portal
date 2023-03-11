@@ -1,12 +1,14 @@
 use egui::emath::Align;
 use egui::epaint::hex_color;
 use egui::{self, Layout, RichText};
+use font::{font_definitions, ICON_DOWNLOAD, ICON_UPLOAD};
 use receive::ReceiveView;
 use send::SendView;
 use visuals::CustomVisuals;
 use widgets::toggle;
 
 mod egui_ext;
+mod font;
 mod receive;
 mod send;
 mod shell;
@@ -14,7 +16,6 @@ mod transit_info;
 mod visuals;
 mod widgets;
 
-#[derive(Default)]
 pub struct PortalApp {
     send_view: SendView,
     receive_view: ReceiveView,
@@ -38,6 +39,23 @@ impl From<bool> for View {
     }
 }
 
+impl PortalApp {
+    pub fn new_boxed(cc: &eframe::CreationContext) -> Box<dyn eframe::App> {
+        Box::new(Self::new(cc))
+    }
+
+    fn new(cc: &eframe::CreationContext) -> Self {
+        cc.egui_ctx.set_fonts(font_definitions());
+
+        PortalApp {
+            send_view: Default::default(),
+            receive_view: Default::default(),
+            visuals: Default::default(),
+            view_toggle: Default::default(),
+        }
+    }
+}
+
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.visuals.update(ctx, frame);
@@ -45,17 +63,16 @@ impl eframe::App for PortalApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                ui.add_space(12.);
-
                 let view = View::from(self.view_toggle);
                 self.apply_style_overrides(view, ui.style_mut());
 
                 if self.show_switcher(view) {
                     let font_size = 14.;
+                    ui.add_space(12.);
                     ui.add(toggle(
                         &mut self.view_toggle,
-                        RichText::new("📤 Send").size(font_size),
-                        RichText::new("📥 Receive").size(font_size),
+                        RichText::new(format!("{ICON_UPLOAD} Send")).size(font_size),
+                        RichText::new(format!("{ICON_DOWNLOAD} Receive")).size(font_size),
                     ));
                 }
 

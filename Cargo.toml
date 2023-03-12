@@ -31,7 +31,7 @@ winapi = "0.3.9"
 [patch.crates-io]
 eframe = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }
 egui = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }
-poll-promise = { git = "https://github.com/bash/poll-promise", branch = "async-std" }
+poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
 opener = { git = "https://github.com/bash/opener", branch = "reveal" }
 
 [workspace]

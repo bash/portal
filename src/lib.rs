@@ -40,18 +40,19 @@ impl From<bool> for View {
 }
 
 impl PortalApp {
-    pub fn new_boxed(cc: &eframe::CreationContext) -> Box<dyn eframe::App> {
-        Box::new(Self::new(cc))
-    }
-
-    fn new(cc: &eframe::CreationContext) -> Self {
+    pub fn new(cc: &eframe::CreationContext, open_uri: Option<String>) -> Self {
         cc.egui_ctx.set_fonts(font_definitions());
+
+        let view_toggle = open_uri.is_some();
+        let receive_view = open_uri
+            .map(|uri| ReceiveView::new_with_uri(uri))
+            .unwrap_or_default();
 
         PortalApp {
             send_view: Default::default(),
-            receive_view: Default::default(),
+            receive_view,
             visuals: Default::default(),
-            view_toggle: Default::default(),
+            view_toggle,
         }
     }
 }

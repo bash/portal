@@ -2739,6 +2739,7 @@ dependencies = [
  "single_value_channel",
  "tempfile",
  "thiserror",
+ "url",
  "walkdir",
  "zip",
 ]

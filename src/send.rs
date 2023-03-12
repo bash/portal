@@ -1,5 +1,5 @@
 use crate::egui_ext::ContextExt;
-use crate::font::{ICON_CHECK, ICON_CLIPBOARD_COPY, ICON_TICKET, ICON_UPLOAD, ICON_X};
+use crate::font::{ICON_CHECK, ICON_CLIPBOARD_COPY, ICON_LINK, ICON_TICKET, ICON_UPLOAD, ICON_X};
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
 use crate::widgets::{
@@ -9,7 +9,7 @@ use eframe::egui::{Button, Key, Modifiers, ProgressBar, Ui};
 use egui::{InputState, RichText};
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
-use portal_wormhole::{Code, PortalError, Progress};
+use portal_wormhole::{Code, PortalError, Progress, SharableWormholeTransferUri};
 use rfd::FileDialog;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -226,12 +226,22 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
             ui.label(RichText::new(&code.0).size(15.).strong());
             ui.add_space(5.);
             if ui
-                .button(format!("{ICON_CLIPBOARD_COPY} Copy"))
+                .button(format!("{ICON_CLIPBOARD_COPY} Copy Code"))
                 .on_hover_text("Click to copy")
                 .clicked()
                 || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::C))
             {
                 ui.output_mut(|output| output.copied_text = code.0.clone());
+            }
+
+            if ui
+                .button(format!("{ICON_LINK} Copy Link"))
+                .on_hover_text("Click to copy")
+                .clicked()
+            {
+                ui.output_mut(|output| {
+                    output.copied_text = SharableWormholeTransferUri::new(code.clone()).to_string();
+                });
             }
         },
     );

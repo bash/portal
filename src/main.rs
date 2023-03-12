@@ -1,9 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use clap::Parser;
 use eframe::egui::{self};
 use portal::PortalApp;
 
+#[derive(Parser, Debug)]
+#[command(version)]
+struct Cli {
+    #[arg(last = true)]
+    uri: Option<String>,
+}
+
 fn main() -> Result<(), eframe::Error> {
+    let args = Cli::parse();
+
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 
@@ -13,5 +23,9 @@ fn main() -> Result<(), eframe::Error> {
         run_and_return: false,
         ..Default::default()
     };
-    eframe::run_native("Portal", options, Box::new(PortalApp::new_boxed))
+    eframe::run_native(
+        "Portal",
+        options,
+        Box::new(move |cc| Box::new(PortalApp::new(cc, args.uri))),
+    )
 }

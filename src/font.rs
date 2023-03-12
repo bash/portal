@@ -7,6 +7,7 @@ pub const ICON_TICKET: char = '\u{f431}';
 pub const ICON_X: char = '\u{f47d}';
 pub const ICON_ARROW_LEFT: char = '\u{f137}';
 pub const ICON_CHECK: char = '\u{f198}';
+pub const ICON_LINK: char = '\u{f308}';
 
 const LUCIDE_FONT_NAME: &str = "lucide";
 const ROBOTO_FONT_NAME: &str = "Roboto";

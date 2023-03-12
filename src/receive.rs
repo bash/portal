@@ -14,14 +14,27 @@ use portal_wormhole::receive::{
     connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,
     ReceivingController,
 };
-use portal_wormhole::{Code, PortalError, Progress, TransitInfo};
+use portal_wormhole::{Code, PortalError, Progress, TransitInfo, WormholeTransferUri};
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use ubyte::{ByteUnit, ToByteUnit};
 
 #[derive(Default)]
 pub struct ReceiveView {
     state: ReceiveState,
+}
+
+impl ReceiveView {
+    pub fn new_with_uri(uri: String) -> Self {
+        // TODO: handle error, is_leader and custom rendezvous_server
+        let code = WormholeTransferUri::from_str(&uri)
+            .map(|uri| uri.code.0)
+            .unwrap_or_default();
+        Self {
+            state: ReceiveState::Initial(code),
+        }
+    }
 }
 
 impl Default for ReceiveState {

@@ -25,6 +25,7 @@
 
         <Feature Id="Main">
             <ComponentGroupRef Id="MainComponent" />
+            <ComponentGroupRef Id="RegistryEntries" />
             <ComponentRef Id="StartMenuShortcut" />
         </Feature>
 
@@ -32,6 +33,35 @@
         <ComponentGroup Id="MainComponent" Directory="INSTALLFOLDER">
             <Component>
                 <File Id="Executable" Source="..\..\..\target\release\portal.exe" Vital="true" />
+            </Component>
+        </ComponentGroup>
+
+        <!-- See https://learn.microsoft.com/en-us/windows/win32/shell/default-programs for documentation on Default Programs. -->
+        <ComponentGroup Id="RegistryEntries" Directory="TARGETDIR">
+            <!-- App Paths to support Start, Run -->
+            <Component Id="AppPaths">
+                <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\portal.exe" Value="[!Executable]" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\portal.exe" Name="Path" Value="[INSTALLFOLDER]" Type="string" />
+            </Component>
+            <!-- Capabilities keys for Vista/7 "Set Program Access and Defaults" -->
+            <Component Id="Capabilities">
+                <RegistryValue Root="HKCU" Key="Software\!(bind.Property.ProductName)\Capabilities" Name="ApplicationDescription" Value="!(bind.Property.ProductName)" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\!(bind.Property.ProductName)\Capabilities" Name="ApplicationIcon" Value="[!Executable],1" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\!(bind.Property.ProductName)\Capabilities" Name="ApplicationName" Value="!(bind.Property.ProductName)" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\!(bind.Property.ProductName)\Capabilities\UrlAssociations" Name="wormhole-transfer" Value="!(bind.Property.ProductName).wormhole-transfer" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\RegisteredApplications" Name="!(bind.Property.ProductName)" Value="Software\!(bind.Property.ProductName)\Capabilities" Type="string" />
+            </Component>
+            <!-- wormhole-transfer URI Scheme ProgID -->
+            <Component Id="UriSchemeProgId">
+                <RegistryValue Root="HKCU" Key="Software\Classes\!(bind.Property.ProductName).wormhole-transfer" Value="URL:Wormhole Transfer" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\Classes\!(bind.Property.ProductName).wormhole-transfer" Name="URL Protocol" Value="" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\Classes\!(bind.Property.ProductName).wormhole-transfer" Name="DefaultIcon" Value="[!Executable],1" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\Classes\!(bind.Property.ProductName).wormhole-transfer\shell\Open\command" Value="&quot;[!Executable]&quot; -- &quot;%1&quot;" Type="string" />
+            </Component>
+            <!-- wormhole-transfer URI Scheme -->
+            <Component Id="UriScheme">
+                <RegistryValue Root="HKCU" Key="Software\Classes\wormhole-transfer" Value="URL:Wormhole Transfer" Type="string" />
+                <RegistryValue Root="HKCU" Key="Software\Classes\wormhole-transfer" Name="URL Protocol" Value="" Type="string" />
             </Component>
         </ComponentGroup>
 

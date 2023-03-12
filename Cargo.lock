@@ -2587,7 +2587,7 @@ dependencies = [
 [[package]]
 name = "poll-promise"
 version = "0.2.0"
-source = "git+https://github.com/bash/poll-promise?branch=async-std#a065f98fe5fa4516d42fdf5fab5af851b24bb653"
+source = "git+https://github.com/bash/poll-promise?branch=async-std#e42b533896a6310384962af1ee1e5060771c5341"
 dependencies = [
  "async-std",
  "static_assertions",

@@ -44,9 +44,7 @@ impl PortalApp {
         cc.egui_ctx.set_fonts(font_definitions());
 
         let view_toggle = open_uri.is_some();
-        let receive_view = open_uri
-            .map(|uri| ReceiveView::new_with_uri(uri))
-            .unwrap_or_default();
+        let receive_view = open_uri.map(ReceiveView::new_with_uri).unwrap_or_default();
 
         PortalApp {
             send_view: Default::default(),

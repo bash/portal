@@ -1,56 +1,58 @@
 use egui::emath::Align;
-use egui::epaint::hex_color;
-use egui::{self, Layout, RichText};
-use font::{font_definitions, ICON_DOWNLOAD, ICON_UPLOAD};
-use receive::ReceiveView;
-use send::SendView;
+use egui::{self, Layout, Ui};
+use font::{font_definitions, ICON_X};
+use main_view::{show_main_view, MainViewState};
+use std::error::Error;
 use visuals::CustomVisuals;
-use widgets::toggle;
+use widgets::{cancel_button, page, CancelLabel};
 
 mod egui_ext;
 mod font;
 mod receive;
+pub(crate) use receive::*;
 mod send;
+pub(crate) use send::*;
 mod shell;
+mod startup_action;
+pub use startup_action::*;
+mod main_view;
 mod transit_info;
 mod visuals;
 mod widgets;
 
 pub struct PortalApp {
-    send_view: SendView,
-    receive_view: ReceiveView,
+    state: PortalAppState,
     visuals: CustomVisuals,
-    view_toggle: bool,
 }
 
-#[derive(PartialEq, Copy, Clone)]
-pub enum View {
-    Send,
-    Receive,
+enum PortalAppState {
+    Main(MainViewState),
+    UriError(Box<dyn Error>),
 }
 
-impl From<bool> for View {
-    fn from(value: bool) -> Self {
-        if value {
-            View::Receive
-        } else {
-            View::Send
+impl Default for PortalAppState {
+    fn default() -> Self {
+        PortalAppState::Main(Default::default())
+    }
+}
+
+impl From<StartupAction> for PortalAppState {
+    fn from(value: StartupAction) -> Self {
+        match value {
+            StartupAction::ShowInvalidUriError(error) => PortalAppState::UriError(error),
+            StartupAction::None => Default::default(),
+            StartupAction::ReceiveFile(action) => PortalAppState::Main(MainViewState::from(action)),
         }
     }
 }
 
 impl PortalApp {
-    pub fn new(cc: &eframe::CreationContext, open_uri: Option<String>) -> Self {
+    pub fn new(cc: &eframe::CreationContext, action: StartupAction) -> Self {
         cc.egui_ctx.set_fonts(font_definitions());
 
-        let view_toggle = open_uri.is_some();
-        let receive_view = open_uri.map(ReceiveView::new_with_uri).unwrap_or_default();
-
         PortalApp {
-            send_view: Default::default(),
-            receive_view,
             visuals: Default::default(),
-            view_toggle,
+            state: PortalAppState::from(action),
         }
     }
 }
@@ -62,23 +64,25 @@ impl eframe::App for PortalApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                let view = View::from(self.view_toggle);
-                self.apply_style_overrides(view, ui.style_mut());
-
-                if self.show_switcher(view) {
-                    let font_size = 14.;
-                    ui.add_space(12.);
-                    ui.add(toggle(
-                        &mut self.view_toggle,
-                        RichText::new(format!("{ICON_UPLOAD} Send")).size(font_size),
-                        RichText::new(format!("{ICON_DOWNLOAD} Receive")).size(font_size),
-                    ));
+                match &mut self.state {
+                    PortalAppState::Main(main) => show_main_view(main, ui),
+                    PortalAppState::UriError(error) => {
+                        if show_uri_error(ui, error.as_ref()) {
+                            update!(
+                                &mut self.state,
+                                PortalAppState::UriError(..) => PortalAppState::default());
+                        }
+                    }
                 }
-
-                self.ui(view, ui);
             });
         });
     }
+}
+
+fn show_uri_error(ui: &mut Ui, error: &dyn Error) -> bool {
+    let back_button_clicked = cancel_button(ui, CancelLabel::Back);
+    page(ui, "Failed to open Link", error.to_string(), ICON_X);
+    back_button_clicked
 }
 
 fn show_version(ctx: &egui::Context) {
@@ -102,35 +106,6 @@ fn show_version(ctx: &egui::Context) {
                 );
             })
         });
-}
-
-impl PortalApp {
-    fn apply_style_overrides(&self, view: View, style: &mut egui::Style) {
-        let (fill, stroke) = match view {
-            View::Send if style.visuals.dark_mode => (hex_color!("#DB8400"), hex_color!("#38270E")),
-            View::Send => (hex_color!("#FF9D0A"), hex_color!("#523A16")),
-            View::Receive if style.visuals.dark_mode => {
-                (hex_color!("#27A7D8"), hex_color!("#183039"))
-            }
-            View::Receive => (hex_color!("#73CDF0"), hex_color!("#183039")),
-        };
-        style.visuals.selection.bg_fill = fill;
-        style.visuals.selection.stroke.color = stroke;
-    }
-
-    fn show_switcher(&self, view: View) -> bool {
-        match view {
-            View::Send => matches!(self.send_view, SendView::Ready(..)),
-            View::Receive => self.receive_view.show_switcher(),
-        }
-    }
-
-    fn ui(&mut self, view: View, ui: &mut egui::Ui) {
-        match view {
-            View::Send => self.send_view.ui(ui),
-            View::Receive => self.receive_view.ui(ui),
-        }
-    }
 }
 
 #[macro_export]

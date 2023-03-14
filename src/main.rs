@@ -2,7 +2,7 @@
 
 use clap::Parser;
 use eframe::egui::{self};
-use portal::PortalApp;
+use portal::{PortalApp, StartupAction};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -23,9 +23,10 @@ fn main() -> Result<(), eframe::Error> {
         run_and_return: false,
         ..Default::default()
     };
+    let startup_action = StartupAction::from_uri(args.uri.as_deref());
     eframe::run_native(
         "Portal",
         options,
-        Box::new(move |cc| Box::new(PortalApp::new(cc, args.uri))),
+        Box::new(move |cc| Box::new(PortalApp::new(cc, startup_action))),
     )
 }

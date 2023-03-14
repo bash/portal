@@ -2710,6 +2710,7 @@ dependencies = [
  "portal-wormhole",
  "rfd",
  "take_mut",
+ "thiserror",
  "tracing-subscriber",
  "ubyte",
  "winapi",

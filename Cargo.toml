@@ -28,6 +28,7 @@ take_mut = "0.2.2"
 tracing-subscriber = "0.3"
 ubyte = "0.10.3"
 winapi = "0.3.9"
+thiserror = "1.0.38"
 
 [patch.crates-io]
 eframe = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }

@@ -2,10 +2,10 @@ use crate::egui_ext::ContextExt;
 use crate::font::{ICON_CHECK, ICON_DOWNLOAD, ICON_X};
 use crate::shell::open;
 use crate::transit_info::TransitInfoDisplay;
-use crate::update;
 use crate::widgets::{
     cancel_button, page, page_with_content, CancelLabel, PrimaryButton, MIN_BUTTON_SIZE,
 };
+use crate::{update, ReceiveFileAction};
 use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
 use egui::Key;
 use opener::reveal;
@@ -14,10 +14,9 @@ use portal_wormhole::receive::{
     connect, ConnectResult, ConnectingController, ReceiveRequestController, ReceiveResult,
     ReceivingController,
 };
-use portal_wormhole::{Code, PortalError, Progress, TransitInfo, WormholeTransferUri};
+use portal_wormhole::{Code, PortalError, Progress, TransitInfo};
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use ubyte::{ByteUnit, ToByteUnit};
 
 #[derive(Default)]
@@ -26,13 +25,9 @@ pub struct ReceiveView {
 }
 
 impl ReceiveView {
-    pub fn new_with_uri(uri: String) -> Self {
-        // TODO: handle error, is_leader and custom rendezvous_server
-        let code = WormholeTransferUri::from_str(&uri)
-            .map(|uri| uri.code.0)
-            .unwrap_or_default();
+    pub fn new(action: ReceiveFileAction) -> Self {
         Self {
-            state: ReceiveState::Initial(code),
+            state: ReceiveState::Initial(action.code.0),
         }
     }
 }

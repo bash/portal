@@ -4,7 +4,7 @@ use font::{font_definitions, ICON_X};
 use main_view::{show_main_view, MainViewState};
 use std::error::Error;
 use visuals::CustomVisuals;
-use widgets::{cancel_button, page, CancelLabel};
+use widgets::{app_version, cancel_button, page, CancelLabel};
 
 mod egui_ext;
 mod font;
@@ -60,7 +60,7 @@ impl PortalApp {
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.visuals.update(ctx, frame);
-        show_version(ctx);
+        app_version(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
@@ -83,29 +83,6 @@ fn show_uri_error(ui: &mut Ui, error: &dyn Error) -> bool {
     let back_button_clicked = cancel_button(ui, CancelLabel::Back);
     page(ui, "Failed to open Link", error.to_string(), ICON_X);
     back_button_clicked
-}
-
-fn show_version(ctx: &egui::Context) {
-    egui::TopBottomPanel::bottom("bottom panel")
-        .show_separator_line(false)
-        .show(ctx, |ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.visuals_mut().hyperlink_color = ui.visuals().weak_text_color();
-
-                const REPOSITORY_URL: &str = "https://github.com/bash/portal";
-
-                #[cfg(debug_assertions)]
-                ui.hyperlink_to("dev", REPOSITORY_URL);
-                #[cfg(not(debug_assertions))]
-                ui.hyperlink_to(
-                    env!("CARGO_PKG_VERSION"),
-                    format!(
-                        "{REPOSITORY_URL}/releases/tag/v{}",
-                        env!("CARGO_PKG_VERSION")
-                    ),
-                );
-            })
-        });
 }
 
 #[macro_export]

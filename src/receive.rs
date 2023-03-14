@@ -2,10 +2,10 @@ use crate::egui_ext::ContextExt;
 use crate::font::{ICON_CHECK, ICON_DOWNLOAD, ICON_X};
 use crate::shell::open;
 use crate::transit_info::TransitInfoDisplay;
-use crate::update;
 use crate::widgets::{
     cancel_button, page, page_with_content, CancelLabel, PrimaryButton, MIN_BUTTON_SIZE,
 };
+use crate::{update, ReceiveFileAction};
 use eframe::egui::{Button, ProgressBar, TextEdit, Ui};
 use egui::Key;
 use opener::reveal;
@@ -22,6 +22,14 @@ use ubyte::{ByteUnit, ToByteUnit};
 #[derive(Default)]
 pub struct ReceiveView {
     state: ReceiveState,
+}
+
+impl ReceiveView {
+    pub fn new(action: ReceiveFileAction) -> Self {
+        Self {
+            state: ReceiveState::Initial(action.code.0),
+        }
+    }
 }
 
 impl Default for ReceiveState {

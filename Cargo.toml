@@ -34,7 +34,7 @@ thiserror = "1.0.38"
 eframe = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }
 egui = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
-opener = { git = "https://github.com/bash/opener", branch = "reveal" }
+opener = { git = "https://github.com/Seeker14491/opener"}
 
 [workspace]
 members = [

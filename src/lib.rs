@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::f32::consts::TAU;
 use std::vec;
-use visuals::CustomVisuals;
+use themed_visuals::ThemedVisuals;
+use visuals::dark_visuals;
 use widgets::{app_version, cancel_button, page, CancelLabel};
 
 mod egui_ext;
@@ -25,13 +26,14 @@ mod shell;
 mod startup_action;
 pub use startup_action::*;
 mod main_view;
+mod themed_visuals;
 mod transit_info;
 mod visuals;
 mod widgets;
 
 pub struct PortalApp {
     state: PortalAppState,
-    visuals: CustomVisuals,
+    visuals: ThemedVisuals,
 }
 
 enum PortalAppState {
@@ -60,7 +62,7 @@ impl PortalApp {
         // cc.egui_ctx.set_fonts(font_definitions());
 
         PortalApp {
-            visuals: Default::default(),
+            visuals: ThemedVisuals::default().set_visuals(Theme::Dark, dark_visuals()),
             state: PortalAppState::from(action),
         }
     }
@@ -68,17 +70,14 @@ impl PortalApp {
 
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.visuals.update(ctx, frame);
+        self.visuals.apply(ctx, frame.info().system_theme);
         app_version(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.visuals_mut().selection.stroke.width = 2.;
 
-                let theme_id = Id::new("theme-preference");
-                let theme = ui
-                    .memory_mut(|memory| memory.data.get_persisted(theme_id))
-                    .unwrap_or(ThemePreference::System);
+                let theme = self.visuals.get_theme_override(ctx);
 
                 let button_size = ui.spacing().interact_size.y * egui::vec2(2., 2.);
 
@@ -86,7 +85,10 @@ impl eframe::App for PortalApp {
 
                 let visuals = ui
                     .style()
-                    .interact_selectable(&response, matches!(theme, ThemePreference::System));
+                    .interact_selectable(&response, matches!(theme, None));
+
+                let dark_panel_fill = self.visuals.visuals(Theme::Dark, |v| v.panel_fill);
+                let light_panel_fill = self.visuals.visuals(Theme::Light, |v| v.panel_fill);
 
                 ui.painter()
                     .with_clip_rect(Rect::from_min_max(
@@ -96,7 +98,7 @@ impl eframe::App for PortalApp {
                     .circle(
                         rect.center(),
                         button_size.x / 2.,
-                        Visuals::dark().panel_fill,
+                        dark_panel_fill,
                         Stroke::NONE,
                     );
 
@@ -108,7 +110,7 @@ impl eframe::App for PortalApp {
                     .circle(
                         rect.center(),
                         button_size.x / 2.,
-                        Visuals::light().panel_fill,
+                        light_panel_fill,
                         Stroke::NONE,
                     );
 
@@ -119,63 +121,46 @@ impl eframe::App for PortalApp {
                     visuals.fg_stroke,
                 );
 
-                if matches!(theme, ThemePreference::System) {
+                if matches!(theme, None) {
                     paint_check(ui, button_size, rect.center());
                 }
 
                 if response.clicked() {
-                    ui.memory_mut(|memory| memory.data.remove::<ThemePreference>(theme_id));
-                    ctx.set_visuals(
-                        frame
-                            .info()
-                            .system_theme
-                            .unwrap_or(Theme::Light)
-                            .egui_visuals(),
-                    );
+                    self.visuals.theme_override(ctx, None);
                 }
 
                 let (rect, response) = ui.allocate_exact_size(button_size, egui::Sense::click());
                 let visuals = ui
                     .style()
-                    .interact_selectable(&response, matches!(theme, ThemePreference::Light));
+                    .interact_selectable(&response, matches!(theme, Some(Theme::Light)));
                 ui.painter().circle(
                     rect.center(),
                     button_size.x / 2.,
-                    Visuals::light().panel_fill,
+                    light_panel_fill,
                     visuals.fg_stroke,
                 );
-                if matches!(theme, ThemePreference::Light) {
+                if matches!(theme, Some(Theme::Light)) {
                     paint_check(ui, button_size, rect.center())
                 }
                 if response.clicked() {
-                    ui.memory_mut(|memory| {
-                        memory
-                            .data
-                            .insert_persisted(theme_id, ThemePreference::Light)
-                    });
-                    ctx.set_visuals(Visuals::light());
+                    self.visuals.theme_override(ctx, Theme::Light);
                 }
 
                 let (rect, response) = ui.allocate_exact_size(button_size, egui::Sense::click());
                 let visuals = ui
                     .style()
-                    .interact_selectable(&response, matches!(theme, ThemePreference::Dark));
+                    .interact_selectable(&response, matches!(theme, Some(Theme::Dark)));
                 ui.painter().circle(
                     rect.center(),
                     button_size.x / 2.,
-                    Visuals::dark().panel_fill,
+                    dark_panel_fill,
                     visuals.fg_stroke,
                 );
-                if matches!(theme, ThemePreference::Dark) {
+                if matches!(theme, Some(Theme::Dark)) {
                     paint_check(ui, button_size, rect.center())
                 }
                 if response.clicked() {
-                    ui.memory_mut(|memory| {
-                        memory
-                            .data
-                            .insert_persisted(theme_id, ThemePreference::Dark)
-                    });
-                    ctx.set_visuals(Visuals::dark());
+                    self.visuals.theme_override(ctx, Theme::Dark);
                 }
             });
 

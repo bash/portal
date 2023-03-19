@@ -2718,6 +2718,7 @@ dependencies = [
  "portal-proc-macro",
  "portal-wormhole",
  "rfd",
+ "serde",
  "take_mut",
  "thiserror",
  "tracing-subscriber",

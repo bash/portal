@@ -16,12 +16,14 @@ impl SendRequest {
         sendable_file: Arc<SendableFile>,
         original_request: SendRequest,
     ) -> SendRequest {
-        let original_request = if let SendRequest::Cached(inner_request, _) = original_request {
-            inner_request
-        } else {
-            Box::new(original_request)
-        };
-        SendRequest::Cached(original_request, CachedSendRequest(sendable_file))
+        SendRequest::Cached(original_request.flatten(), CachedSendRequest(sendable_file))
+    }
+
+    fn flatten(self) -> Box<SendRequest> {
+        match self {
+            SendRequest::Cached(inner_request, _) => inner_request,
+            _ => Box::new(self),
+        }
     }
 }
 

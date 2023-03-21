@@ -1,3 +1,4 @@
+use crate::cancellation::{CancellationSource, CancellationToken};
 use crate::error::PortalError;
 use crate::fs::{
     mark_as_downloaded, persist_temp_file, persist_with_conflict_resolution,
@@ -10,7 +11,7 @@ use crate::transit::{
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
 use futures::channel::oneshot;
-use futures::future::{AbortHandle, AbortRegistration, Abortable};
+use futures::future::Abortable;
 use futures::Future;
 use magic_wormhole::transfer::{self, ReceiveRequest};
 use magic_wormhole::transit::{Abilities, TransitInfo};
@@ -22,39 +23,28 @@ pub type ConnectResult = Result<ReceiveRequestController, PortalError>;
 pub type ReceiveResult = Result<PathBuf, PortalError>;
 
 pub fn connect(code: Code) -> (impl Future<Output = ConnectResult>, ConnectingController) {
-    let (wormhole_abort_handle, abort_registration) = AbortHandle::new_pair();
-    let (cancel_sender, cancel_receiver) = oneshot::channel();
-    let cancel_future = async { _ = cancel_receiver.await };
+    let cancellation_source = CancellationSource::default();
+    let cancellation_token = cancellation_source.token();
     let controller = ConnectingController {
-        cancel_sender: Some(cancel_sender),
-        wormhole_abort_handle,
+        cancellation_source,
     };
-    (
-        connect_impl(code, abort_registration, cancel_future),
-        controller,
-    )
+    (connect_impl(code, cancellation_token), controller)
 }
 
 pub struct ConnectingController {
-    wormhole_abort_handle: AbortHandle,
-    cancel_sender: Option<oneshot::Sender<()>>,
+    cancellation_source: CancellationSource,
 }
 
 impl ConnectingController {
     pub fn cancel(&mut self) {
-        self.cancel_sender.take().map(|c| c.send(()));
-        self.wormhole_abort_handle.abort();
+        self.cancellation_source.cancel()
     }
 }
 
-async fn connect_impl(
-    code: Code,
-    abort_registration: AbortRegistration,
-    cancel: impl Future<Output = ()>,
-) -> ConnectResult {
+async fn connect_impl(code: Code, cancellation: CancellationToken) -> ConnectResult {
     let (_, wormhole) = Abortable::new(
         Wormhole::connect_with_code(transfer::APP_CONFIG, code),
-        abort_registration,
+        cancellation.as_abort_registration(),
     )
     .await??;
 
@@ -62,7 +52,7 @@ async fn connect_impl(
         wormhole,
         RELAY_HINTS.clone(),
         Abilities::ALL_ABILITIES,
-        cancel,
+        cancellation.as_future(),
     )
     .await?
     .ok_or(PortalError::Canceled)

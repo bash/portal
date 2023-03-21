@@ -22,9 +22,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-build-nightly-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
       - name: Install dependencies
         run: |
           sudo apt-get install librust-atk-dev libgtk-3-dev
@@ -45,9 +42,6 @@ jobs:
             target/
           key: ubuntu-latest-cargo-build-nightly-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
       - name: Install dependencies
         run: |
           sudo apt-get install librust-atk-dev libgtk-3-dev

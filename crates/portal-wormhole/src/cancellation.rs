@@ -81,12 +81,15 @@ impl CancellationSource {
     }
 
     pub(crate) fn cancel(&self) {
-        let mut funcs = self.inner.funcs.write().unwrap();
-        self.inner.canceled.store(true, Ordering::Relaxed);
-        let funcs = mem::take(&mut *funcs);
-        for func in funcs {
+        for func in self.cancel_and_take_funcs() {
             func();
         }
+    }
+
+    fn cancel_and_take_funcs(&self) -> Vec<Box<dyn FnOnce() + Send + Sync>> {
+        let mut funcs = self.inner.funcs.write().unwrap();
+        self.inner.canceled.store(true, Ordering::Relaxed);
+        mem::take(&mut *funcs)
     }
 }
 

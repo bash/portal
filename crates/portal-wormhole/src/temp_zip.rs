@@ -1,4 +1,4 @@
-use crate::sync::CancellationReceiver;
+use crate::cancellation::CancellationToken;
 use crate::PortalError;
 use std::borrow::Cow;
 use std::fs::{self, File};
@@ -10,11 +10,11 @@ use zip::write::FileOptions;
 use zip::ZipWriter;
 
 /// Packs a folder as a Zip file recursively.
-pub fn pack_folder_as_zip(
+pub(crate) fn pack_folder_as_zip(
     folder_path: &Path,
-    cancellation: &CancellationReceiver,
+    cancellation: CancellationToken,
 ) -> Result<NamedTempFile, PortalError> {
-    cancellation.propagate()?;
+    cancellation.error_if_canceled()?;
 
     let mut temp_file = NamedTempFile::new()?;
     {
@@ -28,17 +28,17 @@ pub fn pack_folder_as_zip(
 ///
 /// Note that this function does not handle duplicate entries as this should be a rare case
 /// (it requires selecting files across multiple directories).
-pub fn pack_selection_as_zip(
+pub(crate) fn pack_selection_as_zip(
     paths: &[PathBuf],
-    cancellation: &CancellationReceiver,
+    cancellation: CancellationToken,
 ) -> Result<NamedTempFile, PortalError> {
-    cancellation.propagate()?;
+    cancellation.error_if_canceled()?;
 
     let mut temp_file = NamedTempFile::new()?;
     {
         let mut writer = ZipWriter::new(&mut temp_file);
         for path in paths {
-            add_path_to_zip(path, None, &mut writer, cancellation)?;
+            add_path_to_zip(path, None, &mut writer, cancellation.clone())?;
         }
     }
     Ok(temp_file)
@@ -51,12 +51,12 @@ fn add_path_to_zip<W>(
     path: &Path,
     relative_path: Option<&Path>,
     writer: &mut ZipWriter<W>,
-    cancellation: &CancellationReceiver,
+    cancellation: CancellationToken,
 ) -> Result<(), PortalError>
 where
     W: Write + Seek,
 {
-    cancellation.propagate()?;
+    cancellation.error_if_canceled()?;
 
     let relative_path = relative_path.unwrap_or_else(|| Path::new(path.file_name().unwrap()));
 
@@ -86,15 +86,15 @@ fn add_folder_to_zip<W>(
     folder_path: &Path,
     folder_relative_path: Option<&Path>,
     writer: &mut ZipWriter<W>,
-    cancellation: &CancellationReceiver,
+    cancellation: CancellationToken,
 ) -> Result<(), PortalError>
 where
     W: Write + Seek,
 {
-    cancellation.propagate()?;
+    cancellation.error_if_canceled()?;
 
     for entry in WalkDir::new(folder_path).follow_links(true) {
-        cancellation.propagate()?;
+        cancellation.error_if_canceled()?;
 
         let entry = entry?;
         let relative_path =

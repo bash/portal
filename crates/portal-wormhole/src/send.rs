@@ -1,11 +1,10 @@
 use self::sendable_file::SendableFile;
+use crate::cancellation::{CancellationSource, CancellationToken};
 use crate::error::PortalError;
-use crate::sync::{cancellation_pair, CancellationReceiver, CancellationSender};
 use crate::transit::{ProgressHandler, TransitHandler, RELAY_HINTS};
 use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
-use futures::channel::oneshot;
-use futures::future::{AbortHandle, AbortRegistration, Abortable, BoxFuture};
+use futures::future::{Abortable, BoxFuture};
 use futures::Future;
 use magic_wormhole::transit::{Abilities, TransitInfo};
 use magic_wormhole::{transfer, Code, Wormhole, WormholeWelcome};
@@ -25,26 +24,18 @@ pub fn send(
 ) {
     let (progress_receiver, progress_updater) =
         svc::channel_starting_with(SendingProgress::Connecting);
-    let (cancel_sender, cancel_receiver) = oneshot::channel();
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    let (pack_abort_handle, pack_abort_registration) = AbortHandle::new_pair();
-    let (cancellation_sender, cancellation_receiver) = cancellation_pair();
 
+    let cancellation_source = CancellationSource::default();
+    let cancellation_token = cancellation_source.token();
     let controller = SendingController {
         progress_receiver,
-        cancel_sender: Some(cancel_sender),
-        abort_handle,
-        pack_abort_handle,
-        cancellation_sender,
+        cancellation_source,
     };
 
     let future = send_impl(
         send_request,
         report(progress_updater, request_repaint),
-        async { _ = cancel_receiver.await },
-        abort_registration,
-        pack_abort_registration,
-        cancellation_receiver,
+        cancellation_token,
     );
 
     (future, controller)
@@ -52,10 +43,7 @@ pub fn send(
 
 pub struct SendingController {
     progress_receiver: svc::Receiver<SendingProgress>,
-    cancel_sender: Option<oneshot::Sender<()>>,
-    abort_handle: AbortHandle,
-    pack_abort_handle: AbortHandle,
-    cancellation_sender: CancellationSender,
+    cancellation_source: CancellationSource,
 }
 
 pub enum SendingProgress {
@@ -72,30 +60,24 @@ impl SendingController {
     }
 
     pub fn cancel(&mut self) {
-        self.abort_handle.abort();
-        self.cancel_sender.take().map(|c| c.send(()));
-        self.pack_abort_handle.abort();
-        self.cancellation_sender.cancel();
+        self.cancellation_source.cancel()
     }
 }
 
 async fn send_impl(
     send_request: SendRequest,
     mut report: impl Reporter,
-    cancel: impl Future<Output = ()>,
-    abort_registration: AbortRegistration,
-    pack_abort_registration: AbortRegistration,
-    cancellation_receiver: CancellationReceiver,
+    cancellation: CancellationToken,
 ) -> Result<(), (PortalError, SendRequest)> {
     report(SendingProgress::Packing);
     let sendable_file = Abortable::new(
-        SendableFile::from_send_request(send_request.clone(), cancellation_receiver),
-        pack_abort_registration,
+        SendableFile::from_send_request(send_request.clone(), cancellation.clone()),
+        cancellation.as_abort_registration(),
     )
     .await
     .with_send_request(send_request.clone())?
     .with_send_request(send_request.clone())?;
-    send_impl_with_sendable_file(&sendable_file, report, cancel, abort_registration)
+    send_impl_with_sendable_file(&sendable_file, report, cancellation)
         .await
         .with_send_request(SendRequest::new_cached(sendable_file, send_request))
 }
@@ -103,8 +85,7 @@ async fn send_impl(
 async fn send_impl_with_sendable_file(
     sendable_file: &SendableFile,
     mut report: impl Reporter,
-    cancel: impl Future<Output = ()>,
-    abort_registration: AbortRegistration,
+    cancellation: CancellationToken,
 ) -> Result<(), PortalError> {
     let (transit_info_receiver, transit_info_updater) = svc::channel();
 
@@ -119,14 +100,14 @@ async fn send_impl_with_sendable_file(
         Result::<_, PortalError>::Ok(wormhole)
     };
 
-    let wormhole = Abortable::new(wormhole, abort_registration).await??;
+    let wormhole = Abortable::new(wormhole, cancellation.as_abort_registration()).await??;
 
     send_file(
         wormhole,
         sendable_file,
         progress_handler(transit_info_receiver, report.clone()),
         transit_handler(transit_info_updater, report),
-        cancel,
+        cancellation.as_future(),
     )
     .await
 }

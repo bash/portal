@@ -1,9 +1,5 @@
 use oneshot::TryRecvError;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use BorrowingOneshotReceiverState::*;
-
-use crate::PortalError;
 
 pub struct BorrowingOneshotReceiver<T> {
     state: BorrowingOneshotReceiverState<T>,
@@ -48,39 +44,5 @@ impl<T> From<oneshot::Receiver<T>> for BorrowingOneshotReceiver<T> {
             state: BorrowingOneshotReceiverState::Waiting,
             incoming: value,
         }
-    }
-}
-
-pub fn cancellation_pair() -> (CancellationSender, CancellationReceiver) {
-    let canceled = Arc::new(AtomicBool::new(false));
-    (
-        CancellationSender {
-            canceled: canceled.clone(),
-        },
-        CancellationReceiver { canceled },
-    )
-}
-
-pub struct CancellationReceiver {
-    canceled: Arc<AtomicBool>,
-}
-
-impl CancellationReceiver {
-    pub fn propagate(&self) -> Result<(), PortalError> {
-        if self.canceled.load(Ordering::Relaxed) {
-            Err(PortalError::Canceled)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-pub struct CancellationSender {
-    canceled: Arc<AtomicBool>,
-}
-
-impl CancellationSender {
-    pub fn cancel(&self) {
-        self.canceled.store(true, Ordering::Relaxed);
     }
 }

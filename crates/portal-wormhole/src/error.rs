@@ -1,3 +1,4 @@
+use crate::cancellation::CancellationError;
 use futures::stream::Aborted;
 use magic_wormhole::transfer::TransferError;
 use magic_wormhole::WormholeError;
@@ -36,6 +37,12 @@ impl From<TransferError> for PortalError {
 
 impl From<Aborted> for PortalError {
     fn from(_: Aborted) -> Self {
+        PortalError::Canceled
+    }
+}
+
+impl From<CancellationError> for PortalError {
+    fn from(_: CancellationError) -> Self {
         PortalError::Canceled
     }
 }

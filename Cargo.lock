@@ -2747,6 +2747,7 @@ dependencies = [
  "magic-wormhole",
  "oneshot",
  "single_value_channel",
+ "static_assertions",
  "tempfile",
  "thiserror",
  "url",

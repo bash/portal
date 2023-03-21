@@ -1,5 +1,5 @@
 use super::SendRequest;
-use crate::sync::CancellationReceiver;
+use crate::cancellation::CancellationToken;
 use crate::temp_zip::{pack_folder_as_zip, pack_selection_as_zip};
 use crate::PortalError;
 use async_std::task::spawn_blocking;
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 
 #[derive(Debug)]
-pub enum SendableFile {
+pub(crate) enum SendableFile {
     Path(PathBuf),
     Temporary(OsString, NamedTempFile),
 }
@@ -17,32 +17,32 @@ pub enum SendableFile {
 impl SendableFile {
     /// Note that cancelling this future may not cancel the background work
     /// immediately as the packing functions only accept cancellation in between files.
-    pub async fn from_send_request(
+    pub(crate) async fn from_send_request(
         send_request: SendRequest,
-        cancellation: CancellationReceiver,
+        cancellation: CancellationToken,
     ) -> Result<Arc<SendableFile>, PortalError> {
         match send_request {
             SendRequest::Cached(_, cached) => Ok(cached.0),
             SendRequest::File(file_path) => Ok(Arc::new(SendableFile::Path(file_path))),
             SendRequest::Folder(folder_path) => Ok(Arc::new(SendableFile::Temporary(
                 folder_zip_file_name(&folder_path),
-                spawn_blocking(move || pack_folder_as_zip(&folder_path, &cancellation)).await?,
+                spawn_blocking(move || pack_folder_as_zip(&folder_path, cancellation)).await?,
             ))),
             SendRequest::Selection(paths) => Ok(Arc::new(SendableFile::Temporary(
                 selection_zip_file_name(&paths),
-                spawn_blocking(move || pack_selection_as_zip(&paths, &cancellation)).await?,
+                spawn_blocking(move || pack_selection_as_zip(&paths, cancellation)).await?,
             ))),
         }
     }
 
-    pub fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         match self {
             SendableFile::Path(path) => path,
             SendableFile::Temporary(_, file) => file.path(),
         }
     }
 
-    pub fn file_name(&self) -> &OsStr {
+    pub(crate) fn file_name(&self) -> &OsStr {
         match self {
             SendableFile::Path(path) => path.file_name().unwrap(),
             SendableFile::Temporary(file_name, _) => file_name,

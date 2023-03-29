@@ -19,7 +19,7 @@ color-hex = "0.2.0"
 eframe = { version = "0.21.0", default-features = false, features = ["accesskit", "glow", "dark-light", "persistence"] }
 egui = { version = "0.21.0", default-features = false, features = ["color-hex"] }
 futures = "0.3.26"
-opener = { version = "0.5.2", features = ["reveal"] }
+opener = { version = "0.6.0", features = ["reveal"] }
 poll-promise = { version = "0.2.0", features = ["async-std"] }
 portal-proc-macro = { path = "crates/portal-proc-macro" }
 portal-wormhole = { path = "crates/portal-wormhole" }
@@ -31,10 +31,9 @@ winapi = "0.3.9"
 thiserror = "1.0.38"
 
 [patch.crates-io]
-eframe = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }
-egui = { git = "https://github.com/bash/egui.git", branch = "theme-changed" }
+eframe = { git = "https://github.com/emilk/egui.git" }
+egui = { git = "https://github.com/emilk/egui.git" }
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
-opener = { git = "https://github.com/Seeker14491/opener"}
 
 [workspace]
 members = [

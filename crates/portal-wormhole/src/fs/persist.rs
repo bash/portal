@@ -1,6 +1,7 @@
 use super::Filename;
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
+use tailcall::tailcall;
 use tempfile::NamedTempFile;
 
 pub enum PersistResult<T> {
@@ -25,24 +26,31 @@ fn to_persist_result<T>(result: Result<T, tempfile::PersistError>) -> PersistRes
 
 pub fn persist_with_conflict_resolution<T>(
     state: T,
-    mut path: PathBuf,
+    path: PathBuf,
     filename: Filename,
-    mut save: impl FnMut(T, &Path) -> PersistResult<T>,
+    save: impl FnMut(T, &Path) -> PersistResult<T>,
 ) -> io::Result<PathBuf> {
-    path.push(filename.to_os_string());
+    return persist(state, path, filename, save, 0);
 
-    let mut result = save(state, &path);
-
-    let mut counter = 1;
-    while let PersistResult::Conflict(state) = result {
+    #[tailcall]
+    fn persist<T>(
+        state: T,
+        mut path: PathBuf,
+        filename: Filename,
+        mut save: impl FnMut(T, &Path) -> PersistResult<T>,
+        counter: u64,
+    ) -> io::Result<PathBuf> {
         path.set_file_name(filename.with_counter(counter).to_os_string());
-        result = save(state, &path);
-        counter += 1;
-    }
-
-    match result {
-        PersistResult::Conflict(_) => unreachable!(),
-        PersistResult::Ok => Ok(path),
-        PersistResult::Err(error) => Err(error),
+        match save(state, &path) {
+            PersistResult::Conflict(state) => persist(
+                state,
+                path,
+                filename,
+                save,
+                counter.checked_add(1).expect("Counter overflow"),
+            ),
+            PersistResult::Ok => Ok(path),
+            PersistResult::Err(error) => Err(error),
+        }
     }
 }

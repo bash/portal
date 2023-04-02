@@ -257,8 +257,8 @@ impl<'a> fmt::Display for SendRequestDisplay<'a> {
                 write!(f, "folder \"{}\"", filename_or_self(path).display())
             }
             SendRequest::Selection(_) => write!(f, "selection"),
-            SendRequest::Cached(orignal_request, _) => {
-                write!(f, "{}", SendRequestDisplay(orignal_request))
+            SendRequest::Cached(original_request, _) => {
+                write!(f, "{}", SendRequestDisplay(original_request))
             }
         }
     }

@@ -9,12 +9,13 @@ pub fn page<I>(
     I: Into<String>,
 {
     if let Some(icon) = icon.into() {
-        ui.add_space(10.);
+        ui.add_space(15.);
         ui.label(RichText::new(icon).size(120.0));
+        ui.add_space(5.);
     }
-    ui.add_space(10.0);
+    ui.add_space(10.);
     ui.label(title.into().size(30.0).strong());
-    ui.add_space(10.0);
+    ui.add_space(10.);
     ui.label(text);
 }
 

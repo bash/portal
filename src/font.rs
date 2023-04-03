@@ -21,7 +21,7 @@ pub fn font_definitions() -> FontDefinitions {
     fonts.font_data.insert(
         LUCIDE_FONT_NAME.to_owned(),
         FontData::from_static(include_bytes!("../assets/lucide/lucide.ttf")).tweak(FontTweak {
-            y_offset_factor: -0.05,
+            y_offset_factor: 0.07,
             ..Default::default()
         }),
     );

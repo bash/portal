@@ -1,9 +1,6 @@
 use crate::cancellation::{CancellationSource, CancellationToken};
 use crate::error::PortalError;
-use crate::fs::{
-    mark_as_downloaded, persist_temp_file, persist_with_conflict_resolution,
-    sanitize_untrusted_filename,
-};
+use crate::fs::{mark_as_downloaded, open_with_conflict_resolution, sanitize_untrusted_filename};
 use crate::sync::BorrowingOneshotReceiver;
 use crate::transit::{
     progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
@@ -17,6 +14,8 @@ use magic_wormhole::transfer::{self, ReceiveRequest};
 use magic_wormhole::transit::{Abilities, TransitInfo};
 use magic_wormhole::{Code, Wormhole};
 use single_value_channel as svc;
+use std::fs::{self, OpenOptions};
+use std::mem;
 use std::path::{Path, PathBuf};
 
 pub type ConnectResult = Result<ReceiveRequestController, PortalError>;
@@ -131,39 +130,41 @@ async fn accept(
     progress_handler: impl ProgressHandler,
     cancel: oneshot::Receiver<()>,
 ) -> ReceiveResult {
-    let temp_file = tempfile::NamedTempFile::new()?;
-    let mut temp_file_async = File::from(temp_file.reopen()?);
-
     let untrusted_filename = receive_request.filename.clone();
-
-    let mut canceled = false;
-    receive_request
-        .accept(
-            transit_handler,
-            progress_handler,
-            &mut temp_file_async,
-            async {
-                _ = cancel.await;
-                canceled = true;
-            },
-        )
-        .await?;
-    if canceled {
-        return Err(PortalError::Canceled);
-    }
-
     let file_name = sanitize_untrusted_filename(
         &untrusted_filename,
         "Downloaded File".as_ref(),
         "bin".as_ref(),
     );
-    let persisted_path = persist_with_conflict_resolution(
-        temp_file,
+
+    let (file, file_path) = open_with_conflict_resolution(
         dirs::download_dir().expect("Unable to detect downloads directory"),
         file_name,
-        persist_temp_file,
+        |path| {
+            OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(path)
+                .map(|f| (f, path.to_owned()))
+        },
     )?;
-    mark_as_downloaded(&persisted_path);
+    let mut async_file = File::from(file);
 
-    Ok(persisted_path)
+    let mut canceled = false;
+    receive_request
+        .accept(transit_handler, progress_handler, &mut async_file, async {
+            _ = cancel.await;
+            canceled = true;
+        })
+        .await?;
+
+    if canceled {
+        mem::drop(async_file);
+        fs::remove_file(file_path)?;
+        return Err(PortalError::Canceled);
+    }
+
+    mark_as_downloaded(&file_path);
+
+    Ok(file_path)
 }

@@ -1895,7 +1895,8 @@ checksum = "d897f394bad6a705d5f4104762e116a75639e470d80901eed05a860a95cb1904"
 [[package]]
 name = "ico-builder"
 version = "0.1.0"
-source = "git+https://github.com/bash/ico-builder.git#fd4b3827e3824f4622966d210546cb11b182b0eb"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "534dc1fb3fb717163067cd52710fef1ad44d5121fd109ebce453019347ba0338"
 dependencies = [
  "image",
  "thiserror",

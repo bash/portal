@@ -42,5 +42,5 @@ members = [
 ]
 
 [target.'cfg(windows)'.build-dependencies]
-ico-builder = { git = "https://github.com/bash/ico-builder.git" }
+ico-builder = "0.1.0"
 winresource = "0.1.15"

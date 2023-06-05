@@ -1,3 +1,4 @@
+use eframe::Theme;
 use egui::emath::Align;
 use egui::{self, Layout, Ui};
 use font::{font_definitions, ICON_X};
@@ -47,11 +48,11 @@ impl From<StartupAction> for PortalAppState {
 }
 
 impl PortalApp {
-    pub fn new(cc: &eframe::CreationContext, action: StartupAction) -> Self {
+    pub fn new(cc: &eframe::CreationContext, action: StartupAction, default_theme: Theme) -> Self {
         cc.egui_ctx.set_fonts(font_definitions());
 
         PortalApp {
-            visuals: Default::default(),
+            visuals: CustomVisuals::new(default_theme),
             state: PortalAppState::from(action),
         }
     }

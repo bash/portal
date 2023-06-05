@@ -16,8 +16,8 @@ path = "src/main.rs"
 async-std = "1.12.0"
 clap = { version = "4.1.8", features = ["derive"] }
 color-hex = "0.2.0"
-eframe = { version = "0.21.0", default-features = false, features = ["accesskit", "glow", "dark-light", "persistence"] }
-egui = { version = "0.21.0", default-features = false, features = ["color-hex"] }
+eframe = { version = "0.22.0", default-features = false, features = ["accesskit", "glow", "persistence"] }
+egui = { version = "0.22.0", default-features = false, features = ["color-hex"] }
 futures = "0.3.26"
 opener = { version = "0.6.0", features = ["reveal"] }
 poll-promise = { version = "0.2.0", features = ["async-std"] }
@@ -31,8 +31,6 @@ winapi = "0.3.9"
 thiserror = "1.0.38"
 
 [patch.crates-io]
-eframe = { git = "https://github.com/emilk/egui.git" }
-egui = { git = "https://github.com/emilk/egui.git" }
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
 
 [workspace]
@@ -44,3 +42,6 @@ members = [
 [target.'cfg(windows)'.build-dependencies]
 ico-builder = "0.1.0"
 winresource = "0.1.15"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dark-light = "1.0.0"

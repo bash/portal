@@ -219,7 +219,7 @@ fn show_connected_page(
     }
 
     let text = format!(
-        "Your peer wants to send you \"{}\" (Size: {}). Do you want to download this file?",
+        "Your peer wants to send you \"{}\" (Size: {}).\nDo you want to download this file?",
         receive_request.filename().display(),
         ByteDisplay(receive_request.filesize().bytes())
     );

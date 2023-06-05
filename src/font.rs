@@ -1,4 +1,5 @@
 use egui::{FontData, FontDefinitions, FontFamily, FontTweak};
+use std::sync::Arc;
 
 pub const ICON_UPLOAD: char = '\u{f452}';
 pub const ICON_DOWNLOAD: char = '\u{f215}';
@@ -10,13 +11,22 @@ pub const ICON_CHECK: char = '\u{f198}';
 pub const ICON_LINK: char = '\u{f308}';
 
 const LUCIDE_FONT_NAME: &str = "lucide";
-const ROBOTO_FONT_NAME: &str = "Roboto";
+const INTER_MEDIUM: &str = "Inter Medium";
+const INTER_BOLD: &str = "Inter Bold";
+
+pub fn title_font_family() -> FontFamily {
+    FontFamily::Name(Arc::from("Title"))
+}
 
 pub fn font_definitions() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     fonts.font_data.insert(
-        ROBOTO_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../assets/roboto/Roboto-Regular.ttf")),
+        INTER_MEDIUM.to_owned(),
+        FontData::from_static(include_bytes!("../assets/inter/Inter-Medium.otf")),
+    );
+    fonts.font_data.insert(
+        INTER_BOLD.to_owned(),
+        FontData::from_static(include_bytes!("../assets/inter/Inter-Bold.otf")),
     );
     fonts.font_data.insert(
         LUCIDE_FONT_NAME.to_owned(),
@@ -27,7 +37,10 @@ pub fn font_definitions() -> FontDefinitions {
     );
     fonts.families.insert(
         FontFamily::Proportional,
-        vec![ROBOTO_FONT_NAME.to_owned(), LUCIDE_FONT_NAME.to_owned()],
+        vec![INTER_MEDIUM.to_owned(), LUCIDE_FONT_NAME.to_owned()],
     );
+    fonts
+        .families
+        .insert(title_font_family(), vec![INTER_BOLD.to_owned()]);
     fonts
 }

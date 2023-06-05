@@ -1,3 +1,4 @@
+use crate::font::title_font_family;
 use egui::{RichText, Ui, WidgetText};
 
 pub fn page<I>(
@@ -14,7 +15,7 @@ pub fn page<I>(
         ui.add_space(5.);
     }
     ui.add_space(10.);
-    ui.label(title.into().size(30.0).strong());
+    ui.label(title.into().size(30.0).family(title_font_family()).strong());
     ui.add_space(10.);
     ui.label(text);
 }

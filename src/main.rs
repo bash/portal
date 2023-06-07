@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use clap::Parser;
-use eframe::{egui, Theme};
+use eframe::{egui, IconData, Theme};
 use portal::{PortalApp, StartupAction};
 use std::error::Error;
 
@@ -19,11 +19,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
 
     let default_theme = default_theme()?;
+    let icon = IconData::try_from_png_bytes(include_bytes!("../build/windows/icon-256x256.png"))?;
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(320.0, 500.0)),
         follow_system_theme: true,
         default_theme,
         run_and_return: false,
+        icon_data: Some(icon),
         ..Default::default()
     };
     let startup_action = StartupAction::from_uri(args.uri.as_deref());

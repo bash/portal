@@ -1,6 +1,6 @@
 use crate::cancellation::{CancellationSource, CancellationToken};
 use crate::error::PortalError;
-use crate::fs::{mark_as_downloaded, open_with_conflict_resolution, sanitize_untrusted_filename};
+use crate::fs::{mark_as_downloaded, open_with_conflict_resolution, sanitize_file_name};
 use crate::sync::BorrowingOneshotReceiver;
 use crate::transit::{
     progress_handler, transit_handler, ProgressHandler, TransitHandler, RELAY_HINTS,
@@ -131,15 +131,9 @@ async fn accept(
     cancel: oneshot::Receiver<()>,
 ) -> ReceiveResult {
     let untrusted_filename = receive_request.filename.clone();
-    let file_name = sanitize_untrusted_filename(
-        &untrusted_filename,
-        "Downloaded File".as_ref(),
-        "bin".as_ref(),
-    );
-
     let base_path = {
         let mut path = dirs::download_dir().expect("Unable to detect downloads directory");
-        path.push(file_name);
+        path.push(sanitize_file_name(untrusted_filename.to_string_lossy(), "_").as_ref());
         path
     };
     let (file, file_path) = open_with_conflict_resolution(&base_path, |path| {

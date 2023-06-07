@@ -1,5 +1,5 @@
 mod filename;
-pub use self::filename::*;
+pub(crate) use self::filename::*;
 mod persist;
 pub use self::persist::*;
 mod download;

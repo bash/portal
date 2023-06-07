@@ -137,17 +137,18 @@ async fn accept(
         "bin".as_ref(),
     );
 
-    let (file, file_path) = open_with_conflict_resolution(
-        dirs::download_dir().expect("Unable to detect downloads directory"),
-        file_name,
-        |path| {
-            OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .open(path)
-                .map(|f| (f, path.to_owned()))
-        },
-    )?;
+    let base_path = {
+        let mut path = dirs::download_dir().expect("Unable to detect downloads directory");
+        path.push(file_name);
+        path
+    };
+    let (file, file_path) = open_with_conflict_resolution(&base_path, |path| {
+        OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(path)
+            .map(|f| (f, path.to_owned()))
+    })?;
     let mut async_file = File::from(file);
 
     let mut canceled = false;

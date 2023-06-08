@@ -22,19 +22,22 @@ impl From<ReceiveFileAction> for MainViewState {
 
 pub(crate) fn show_main_view(state: &mut MainViewState, ui: &mut Ui) {
     let view = View::from(state.view_toggle);
+
     apply_style_overrides(view, ui.style_mut());
 
-    if show_switcher(state, view) {
-        let font_size = 14.;
-        ui.add_space(12.);
-        ui.add(toggle(
-            &mut state.view_toggle,
-            RichText::new(format!("{ICON_UPLOAD} Send")).size(font_size),
-            RichText::new(format!("{ICON_DOWNLOAD} Receive")).size(font_size),
-        ));
-    }
+    ui.add_enabled_ui(ui_enabled(state, view), |ui| {
+        if show_switcher(state, view) {
+            let font_size = 14.;
+            ui.add_space(12.);
+            ui.add(toggle(
+                &mut state.view_toggle,
+                RichText::new(format!("{ICON_UPLOAD} Send")).size(font_size),
+                RichText::new(format!("{ICON_DOWNLOAD} Receive")).size(font_size),
+            ));
+        }
 
-    state_ui(state, view, ui);
+        state_ui(state, view, ui);
+    });
 }
 
 fn apply_style_overrides(view: View, style: &mut egui::Style) {
@@ -50,8 +53,18 @@ fn apply_style_overrides(view: View, style: &mut egui::Style) {
 
 fn show_switcher(state: &MainViewState, view: View) -> bool {
     match view {
-        View::Send => matches!(state.send_view, SendView::Ready(..)),
+        View::Send => matches!(
+            state.send_view,
+            SendView::Ready(..) | SendView::SelectingFile(..)
+        ),
         View::Receive => state.receive_view.show_switcher(),
+    }
+}
+
+fn ui_enabled(state: &MainViewState, view: View) -> bool {
+    match view {
+        View::Send => !matches!(state.send_view, SendView::SelectingFile(..)),
+        View::Receive => true,
     }
 }
 

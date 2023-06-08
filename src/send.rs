@@ -10,14 +10,31 @@ use egui::{InputState, RichText};
 use portal_proc_macro::states;
 use portal_wormhole::send::{send, SendRequest, SendingController, SendingProgress};
 use portal_wormhole::{Code, PortalError, Progress, SharableWormholeTransferUri};
-use rfd::FileDialog;
+use rfd::{AsyncFileDialog, FileHandle};
 use std::fmt;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 
 states! {
     pub enum SendView;
 
     state Ready();
+
+    async state SelectingFile() -> Option<Vec<FileHandle>> {
+        new(pick_future: impl Future<Output = Option<Vec<FileHandle>>> + Send + 'static) {
+            (Box::pin(pick_future),)
+        }
+        next {
+            None => Ready(),
+            Some(paths) => {
+                if let Some(request) = SendRequest::from_paths(paths.into_iter().map(|p| p.path().to_owned()).collect()) {
+                    SendView::new_sending(ui, request)
+                } else {
+                    Ready()
+                }
+            }
+        }
+    }
 
     async state Sending(controller: SendingController, request: SendRequest) -> Result<(), (PortalError, SendRequest)> {
         new(request: SendRequest) {
@@ -52,7 +69,7 @@ impl SendView {
         }
 
         match self {
-            SendView::Ready() => self.show_file_selection_page(ui),
+            SendView::Ready() | SendView::SelectingFile(..) => self.show_file_selection_page(ui),
             SendView::Sending(_, ref mut controller, ref send_request) => {
                 show_transfer_progress(ui, controller, send_request)
             }
@@ -78,24 +95,14 @@ impl SendView {
         if ui.add(select_file_button).clicked()
             || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::O))
         {
-            if let Some(send_request) = FileDialog::new()
-                .pick_files()
-                .and_then(SendRequest::from_paths)
-            {
-                *self = SendView::new_sending(ui, send_request)
-            }
+            *self = SendView::new_selecting_file(ui, AsyncFileDialog::new().pick_files());
         }
 
         ui.add_space(5.0);
 
         let select_folder_button = Button::new("Select Folder").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_folder_button).clicked() {
-            if let Some(send_request) = FileDialog::new()
-                .pick_folders()
-                .and_then(SendRequest::from_paths)
-            {
-                *self = SendView::new_sending(ui, send_request)
-            }
+            *self = SendView::new_selecting_file(ui, AsyncFileDialog::new().pick_folders());
         }
     }
 
@@ -124,9 +131,12 @@ impl SendView {
     }
 
     fn accept_dropped_file(&mut self, ui: &mut Ui) {
-        let dropped_file_paths: Vec<_> = ui.ctx().input(dropped_file_paths);
-        if let Some(send_request) = SendRequest::from_paths(dropped_file_paths) {
-            *self = SendView::new_sending(ui, send_request)
+        if ui.is_enabled() {
+            let dropped_file_paths: Vec<_> = ui.ctx().input(dropped_file_paths);
+
+            if let Some(send_request) = SendRequest::from_paths(dropped_file_paths) {
+                *self = SendView::new_sending(ui, send_request)
+            }
         }
     }
 

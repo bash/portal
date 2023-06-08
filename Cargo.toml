@@ -23,7 +23,7 @@ opener = { version = "0.6.0", features = ["reveal"] }
 poll-promise = { version = "0.2.0", features = ["async-std"] }
 portal-proc-macro = { path = "crates/portal-proc-macro" }
 portal-wormhole = { path = "crates/portal-wormhole" }
-rfd = "0.11.0"
+rfd = { version = "0.11.0", default-features = false, features = ["xdg-portal"] }
 take_mut = "0.2.2"
 tracing-subscriber = "0.3"
 ubyte = "0.10.3"

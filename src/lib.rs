@@ -66,7 +66,7 @@ impl eframe::App for PortalApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
                 match &mut self.state {
-                    PortalAppState::Main(main) => show_main_view(main, ui),
+                    PortalAppState::Main(main) => show_main_view(main, ui, frame),
                     PortalAppState::UriError(error) => {
                         if show_uri_error(ui, error.as_ref()) {
                             update!(

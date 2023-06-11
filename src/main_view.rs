@@ -20,7 +20,7 @@ impl From<ReceiveFileAction> for MainViewState {
     }
 }
 
-pub(crate) fn show_main_view(state: &mut MainViewState, ui: &mut Ui) {
+pub(crate) fn show_main_view(state: &mut MainViewState, ui: &mut Ui, frame: &mut eframe::Frame) {
     let view = View::from(state.view_toggle);
 
     apply_style_overrides(view, ui.style_mut());
@@ -36,7 +36,7 @@ pub(crate) fn show_main_view(state: &mut MainViewState, ui: &mut Ui) {
             ));
         }
 
-        state_ui(state, view, ui);
+        state_ui(state, view, ui, frame);
     });
 }
 
@@ -68,9 +68,9 @@ fn ui_enabled(state: &MainViewState, view: View) -> bool {
     }
 }
 
-fn state_ui(state: &mut MainViewState, view: View, ui: &mut egui::Ui) {
+fn state_ui(state: &mut MainViewState, view: View, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
     match view {
-        View::Send => state.send_view.ui(ui),
+        View::Send => state.send_view.ui(ui, frame),
         View::Receive => state.receive_view.ui(ui),
     }
 }

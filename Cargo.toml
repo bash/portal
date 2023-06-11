@@ -32,6 +32,8 @@ thiserror = "1.0.38"
 
 [patch.crates-io]
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
+eframe = { git = "https://github.com/bash/egui", branch = "window-handle" }
+egui = { git = "https://github.com/bash/egui", branch = "window-handle" }
 
 [workspace]
 members = [

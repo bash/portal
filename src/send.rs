@@ -61,7 +61,7 @@ impl Default for SendView {
 }
 
 impl SendView {
-    pub fn ui(&mut self, ui: &mut Ui) {
+    pub fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         self.next(ui);
 
         if let SendView::Ready() | SendView::Complete(..) = self {
@@ -69,7 +69,9 @@ impl SendView {
         }
 
         match self {
-            SendView::Ready() | SendView::SelectingFile(..) => self.show_file_selection_page(ui),
+            SendView::Ready() | SendView::SelectingFile(..) => {
+                self.show_file_selection_page(ui, frame)
+            }
             SendView::Sending(_, ref mut controller, ref send_request) => {
                 show_transfer_progress(ui, controller, send_request)
             }
@@ -80,29 +82,35 @@ impl SendView {
         }
     }
 
-    fn show_file_selection_page(&mut self, ui: &mut Ui) {
+    fn show_file_selection_page(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         page_with_content(
             ui,
             "Send File",
             "Select or drop the file or directory to send.",
             ICON_UPLOAD,
-            |ui| self.show_file_selection(ui),
+            |ui| self.show_file_selection(ui, frame),
         );
     }
 
-    fn show_file_selection(&mut self, ui: &mut Ui) {
+    fn show_file_selection(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         let select_file_button = PrimaryButton::new("Select File").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_file_button).clicked()
             || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::O))
         {
-            *self = SendView::new_selecting_file(ui, AsyncFileDialog::new().pick_files());
+            *self = SendView::new_selecting_file(
+                ui,
+                AsyncFileDialog::new().set_parent(frame).pick_files(),
+            );
         }
 
         ui.add_space(5.0);
 
         let select_folder_button = Button::new("Select Folder").min_size(MIN_BUTTON_SIZE);
         if ui.add(select_folder_button).clicked() {
-            *self = SendView::new_selecting_file(ui, AsyncFileDialog::new().pick_folders());
+            *self = SendView::new_selecting_file(
+                ui,
+                AsyncFileDialog::new().set_parent(frame).pick_folders(),
+            );
         }
     }
 

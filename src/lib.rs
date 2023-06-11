@@ -89,7 +89,7 @@ fn show_uri_error(ui: &mut Ui, error: &dyn Error) -> bool {
 #[macro_export]
 macro_rules! update {
     ($target:expr, $pattern:pat => $match_arm:expr) => {
-        ::take_mut::take_or_recover($target, Default::default, |target| match target {
+        ::replace_with::replace_with($target, Default::default, |target| match target {
             $pattern => $match_arm,
             _ => target,
         });

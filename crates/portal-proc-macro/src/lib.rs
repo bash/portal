@@ -68,7 +68,7 @@ fn quote_next_impl(ident: &Ident, states: &[State]) -> TokenStream2 {
     quote! {
         fn next(&mut self, ui: &mut ::egui::Ui) {
             use #ident::*;
-            ::take_mut::take(self, |__state| {
+            ::replace_with::replace_with(self, ::std::default::Default::default, |__state| {
                 match __state {
                     #next_match_arms,
                     _ => __state,

@@ -1,5 +1,6 @@
 use crate::egui_ext::ContextExt;
 use crate::font::{ICON_CHECK, ICON_CLIPBOARD_COPY, ICON_LINK, ICON_TICKET, ICON_UPLOAD, ICON_X};
+use crate::shell::ShellProgress;
 use crate::transit_info::TransitInfoDisplay;
 use crate::update;
 use crate::widgets::{
@@ -61,6 +62,22 @@ impl Default for SendView {
 }
 
 impl SendView {
+    pub(crate) fn shell_progress(&mut self) -> ShellProgress {
+        use SendView::*;
+        match self {
+            Ready(..) | SelectingFile(..) | Error(..) | Complete(..) => ShellProgress::None,
+            Sending(_, controller, _) => {
+                use SendingProgress::*;
+                match *controller.progress() {
+                    Sending(_, Progress { value, total }) => ShellProgress::Normal(value, total),
+                    Packing | Connecting | Connected(..) | PreparingToSend => {
+                        ShellProgress::Indeterminate
+                    }
+                }
+            }
+        }
+    }
+
     pub fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         self.next(ui);
 

@@ -3,6 +3,7 @@ use egui::emath::Align;
 use egui::{self, Layout, Ui};
 use font::{font_definitions, ICON_X};
 use main_view::{show_main_view, MainViewState};
+use shell::ProgressReporter;
 use std::error::Error;
 use visuals::CustomVisuals;
 use widgets::{app_version, cancel_button, page, CancelLabel};
@@ -24,6 +25,7 @@ mod widgets;
 pub struct PortalApp {
     state: PortalAppState,
     visuals: CustomVisuals,
+    shell_progress_reporter: ProgressReporter,
 }
 
 enum PortalAppState {
@@ -54,6 +56,7 @@ impl PortalApp {
         PortalApp {
             visuals: CustomVisuals::new(default_theme),
             state: PortalAppState::from(action),
+            shell_progress_reporter: ProgressReporter::start(),
         }
     }
 }
@@ -61,6 +64,12 @@ impl PortalApp {
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.visuals.update(ctx, frame);
+
+        if let PortalAppState::Main(ref mut main) = self.state {
+            self.shell_progress_reporter
+                .report(frame, main_view::shell_progress(main));
+        }
+
         app_version(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {

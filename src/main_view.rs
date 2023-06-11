@@ -1,4 +1,5 @@
 use crate::font::{ICON_DOWNLOAD, ICON_UPLOAD};
+use crate::shell::ShellProgress;
 use crate::widgets::toggle;
 use crate::{ReceiveFileAction, ReceiveView, SendView};
 use egui::{hex_color, RichText, Ui};
@@ -17,6 +18,13 @@ impl From<ReceiveFileAction> for MainViewState {
             view_toggle: true,
             ..Default::default()
         }
+    }
+}
+
+pub(crate) fn shell_progress(state: &mut MainViewState) -> ShellProgress {
+    match View::from(state.view_toggle) {
+        View::Send => state.send_view.shell_progress(),
+        View::Receive => state.receive_view.shell_progress(),
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::egui_ext::ContextExt;
 use crate::font::{ICON_CHECK, ICON_DOWNLOAD, ICON_X};
-use crate::shell::open;
+use crate::shell::{open, ShellProgress};
 use crate::transit_info::TransitInfoDisplay;
 use crate::widgets::{
     cancel_button, page, page_with_content, CancelLabel, PrimaryButton, MIN_BUTTON_SIZE,
@@ -87,6 +87,18 @@ states! {
 impl ReceiveView {
     pub fn show_switcher(&self) -> bool {
         matches!(self.state, ReceiveState::Initial(_))
+    }
+
+    pub(crate) fn shell_progress(&mut self) -> ShellProgress {
+        use ReceiveState::*;
+        match &mut self.state {
+            Initial(..) | Error(..) | Completed(..) => ShellProgress::None,
+            Connecting(..) | Connected(..) | Rejecting(..) => ShellProgress::Indeterminate,
+            Receiving(_, controller, _) => {
+                let Progress { value, total } = *controller.progress();
+                ShellProgress::Normal(value, total)
+            }
+        }
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {

@@ -2743,12 +2743,14 @@ dependencies = [
  "poll-promise",
  "portal-proc-macro",
  "portal-wormhole",
+ "raw-window-handle",
  "rfd",
  "take_mut",
  "thiserror",
  "tracing-subscriber",
  "ubyte",
  "winapi",
+ "windows 0.48.0",
  "winresource",
 ]
 

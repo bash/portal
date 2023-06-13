@@ -1427,7 +1427,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "ecolor"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "bytemuck",
  "color-hex",
@@ -1437,7 +1437,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -1468,7 +1468,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "accesskit",
  "ahash 0.8.3",
@@ -1482,7 +1482,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1499,7 +1499,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1513,7 +1513,7 @@ dependencies = [
 [[package]]
 name = "emath"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1563,7 +1563,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.22.0"
-source = "git+https://github.com/bash/egui?branch=window-handle#e3764acb80b4666b9727e466c68530c42f70aac9"
+source = "git+https://github.com/emilk/egui?branch=master#073f49682da20828dbd118f1d97e14a2b3879631"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.3",

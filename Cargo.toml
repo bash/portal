@@ -36,8 +36,8 @@ log = { version = "0.4.19", features = ["kv_unstable_std"] }
 
 [patch.crates-io]
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
-eframe = { git = "https://github.com/bash/egui", branch = "window-handle" }
-egui = { git = "https://github.com/bash/egui", branch = "window-handle" }
+eframe = { git = "https://github.com/emilk/egui", branch = "master" }
+egui = { git = "https://github.com/emilk/egui", branch = "master" }
 
 [workspace]
 members = [

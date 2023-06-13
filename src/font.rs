@@ -1,14 +1,16 @@
 use egui::{FontData, FontDefinitions, FontFamily, FontTweak};
 use std::sync::Arc;
 
-pub const ICON_UPLOAD: char = '\u{f452}';
-pub const ICON_DOWNLOAD: char = '\u{f215}';
-pub const ICON_CLIPBOARD_COPY: char = '\u{f1b8}';
-pub const ICON_TICKET: char = '\u{f431}';
-pub const ICON_X: char = '\u{f47d}';
-pub const ICON_ARROW_LEFT: char = '\u{f137}';
-pub const ICON_CHECK: char = '\u{f198}';
-pub const ICON_LINK: char = '\u{f308}';
+pub const ICON_UPLOAD: char = '\u{f539}';
+pub const ICON_DOWNLOAD: char = '\u{f27b}';
+pub const ICON_CLIPBOARD_COPY: char = '\u{f211}';
+pub const ICON_TICKET: char = '\u{f511}';
+pub const ICON_X: char = '\u{f573}';
+pub const ICON_ARROW_LEFT: char = '\u{f14c}';
+pub const ICON_CHECK: char = '\u{f1e5}';
+pub const ICON_LINK: char = '\u{f380}';
+pub const ICON_REFRESH_CW: char = '\u{f464}';
+pub const ICON_TAG: char = '\u{f4fe}';
 
 const LUCIDE_FONT_NAME: &str = "lucide";
 const INTER_MEDIUM: &str = "Inter Medium";

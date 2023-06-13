@@ -58,4 +58,5 @@ fn apply_accent(visuals: &mut Visuals, theme: Theme, accent: Accent) {
     };
     visuals.selection.bg_fill = fill;
     visuals.selection.stroke.color = stroke;
+    visuals.hyperlink_color = fill;
 }

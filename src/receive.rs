@@ -281,7 +281,7 @@ fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedP
         return Some(CompletedPageResponse::Back);
     }
 
-    let filename = downloaded_path.file_name().unwrap();
+    let filename = downloaded_path.file_name().expect("path with a file name");
 
     page_with_content(
         ui,

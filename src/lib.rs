@@ -4,7 +4,7 @@ use egui::{self, Layout, Ui};
 use font::{font_definitions, ICON_X};
 use main_view::{show_main_view, MainViewState};
 use std::error::Error;
-use visuals::CustomVisuals;
+use visuals::{Accent, CustomVisuals};
 use widgets::{app_version, cancel_button, page, CancelLabel};
 
 mod egui_ext;
@@ -60,7 +60,7 @@ impl PortalApp {
 
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.visuals.update(ctx, frame);
+        self.visuals.update(self.accent(), ctx, frame);
         app_version(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -77,6 +77,15 @@ impl eframe::App for PortalApp {
                 }
             });
         });
+    }
+}
+
+impl PortalApp {
+    fn accent(&self) -> Accent {
+        match &self.state {
+            PortalAppState::Main(m) => m.accent(),
+            PortalAppState::UriError(_) => Accent::Orange,
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::font::{ICON_DOWNLOAD, ICON_UPLOAD};
+use crate::visuals::Accent;
 use crate::widgets::toggle;
 use crate::{ReceiveFileAction, ReceiveView, SendView};
 use egui::{hex_color, RichText, Ui};
@@ -8,6 +9,15 @@ pub(crate) struct MainViewState {
     send_view: SendView,
     receive_view: ReceiveView,
     view_toggle: bool,
+}
+
+impl MainViewState {
+    pub(crate) fn accent(&self) -> Accent {
+        match View::from(self.view_toggle) {
+            View::Send => Accent::Orange,
+            View::Receive => Accent::Blue,
+        }
+    }
 }
 
 impl From<ReceiveFileAction> for MainViewState {

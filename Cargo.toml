@@ -29,6 +29,7 @@ tracing-subscriber = "0.3"
 ubyte = "0.10.3"
 winapi = "0.3.9"
 thiserror = "1.0.38"
+log = { version = "0.4.19", features = ["kv_unstable_std"] }
 
 [patch.crates-io]
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }

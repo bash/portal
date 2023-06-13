@@ -1394,6 +1394,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "erased-serde"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f2b0c2380453a92ea8b6c8e5f64ecaafccddde8ceab55ff7a8ac1029f894569"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2089,9 +2098,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.18"
+version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "518ef76f2f87365916b142844c16d8fefd85039bc5699050210a7778ee1cd1de"
+checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 dependencies = [
  "value-bag",
 ]
@@ -2739,6 +2748,7 @@ dependencies = [
  "egui",
  "futures",
  "ico-builder",
+ "log",
  "opener",
  "poll-promise",
  "portal-proc-macro",
@@ -3149,6 +3159,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_fmt"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d4ddca14104cd60529e8c7f7ba71a2c8acd8f7f5cfcdc2faf97eeb7c3010a4"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_json"
 version = "1.0.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3388,6 +3407,74 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "sval"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2faba619276044eec7cd160d87b15d9191fb9b9f7198440343d2144f760cf08"
+
+[[package]]
+name = "sval_buffer"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a353d3cca10721384077c9643c3fafdd6ed2600e57933b8e45c0b580d97b25af"
+dependencies = [
+ "sval",
+ "sval_ref",
+]
+
+[[package]]
+name = "sval_dynamic"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee5fc7349e9f6cb2ab950046818f66ad3f2d7209ccc5dced93da19292a30273a"
+dependencies = [
+ "sval",
+]
+
+[[package]]
+name = "sval_fmt"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "098fb51d5d6007bd2c3f0a23b79aa953d7c46bf943086ce51424c3187c40f9b1"
+dependencies = [
+ "itoa",
+ "ryu",
+ "sval",
+]
+
+[[package]]
+name = "sval_json"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f01126a2783d767496f18f13af26ab2587881f6343368bb26dc62956a723d1c7"
+dependencies = [
+ "itoa",
+ "ryu",
+ "sval",
+]
+
+[[package]]
+name = "sval_ref"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5854d9eaa7bd31840a850322591c59c5b547eb29c9a6ecee1989d6ef963312ce"
+dependencies = [
+ "sval",
+]
+
+[[package]]
+name = "sval_serde"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cdd25fc04c5e882787d62112591aa93efb5bdc2000b43164d29f08582bb85f7"
+dependencies = [
+ "serde",
+ "sval",
+ "sval_buffer",
+ "sval_fmt",
+]
 
 [[package]]
 name = "syn"
@@ -3791,6 +3878,36 @@ name = "value-bag"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4d330786735ea358f3bc09eea4caa098569c1c93f342d9aca0514915022fe7e"
+dependencies = [
+ "value-bag-serde1",
+ "value-bag-sval2",
+]
+
+[[package]]
+name = "value-bag-serde1"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4735c95b4cca1447b448e2e2e87e98d7e7498f4da27e355cf7af02204521001d"
+dependencies = [
+ "erased-serde",
+ "serde",
+ "serde_fmt",
+]
+
+[[package]]
+name = "value-bag-sval2"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "859cb4f0ce7da6a118b559ba74b0e63bf569bea867c20ba457a6b1c886a04e97"
+dependencies = [
+ "sval",
+ "sval_buffer",
+ "sval_dynamic",
+ "sval_fmt",
+ "sval_json",
+ "sval_ref",
+ "sval_serde",
+]
 
 [[package]]
 name = "vec_map"

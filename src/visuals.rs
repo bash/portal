@@ -26,7 +26,7 @@ impl CustomVisuals {
     pub(crate) fn update(&mut self, accent: Accent, ctx: &Context, frame: &mut eframe::Frame) {
         let theme = frame.info().system_theme.unwrap_or(self.default_theme);
         if self.current != Some((theme, accent)) {
-            ctx.set_visuals(visuals(theme, accent).clone());
+            ctx.set_visuals(visuals(theme, accent));
             trace!("Updating visuals for theme {theme:?} and accent {accent:?}");
             self.current = Some((theme, accent));
         }

@@ -1,6 +1,6 @@
 use crate::font::{ICON_REFRESH_CW, ICON_TAG};
 use crate::version::AppVersion;
-use egui::{menu, Layout};
+use egui::{menu, Layout, OpenUrl};
 
 pub(crate) fn app_menu(ctx: &egui::Context, latest_version: Option<AppVersion>) {
     egui::TopBottomPanel::top("top panel").show(ctx, |ui| {
@@ -10,11 +10,11 @@ pub(crate) fn app_menu(ctx: &egui::Context, latest_version: Option<AppVersion>) 
 
                 ui.menu_button("Help", |ui| {
                     if ui.button("Source code").clicked() {
-                        ui.output_mut(|out| out.open_url(version.source_code_url));
+                        ctx.open_url(OpenUrl::new_tab(version.source_code_url))
                     }
 
                     if ui.button("Report a bug").clicked() {
-                        ui.output_mut(|out| out.open_url(version.report_issue_url));
+                        ctx.open_url(OpenUrl::new_tab(version.report_issue_url));
                     }
 
                     ui.separator();

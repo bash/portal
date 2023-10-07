@@ -17,11 +17,12 @@ path = "src/main.rs"
 async-std = "1.12.0"
 clap = { version = "4.1.8", features = ["derive"] }
 color-hex = "0.2.0"
-eframe = { version = "0.22.0", default-features = false, features = ["accesskit", "glow", "persistence"] }
-egui = { version = "0.22.0", default-features = false, features = ["color-hex"] }
+eframe = { version = "0.23.0", default-features = false, features = ["accesskit", "glow", "persistence"] }
+egui = { version = "0.23.0", default-features = false, features = ["color-hex"] }
+winit = { version = "0.28.7", features = ["wayland-csd-adwaita"] }
 futures = "0.3.26"
 opener = { version = "0.6.0", features = ["reveal"] }
-poll-promise = { version = "0.2.0", features = ["async-std"] }
+poll-promise = { version = "0.3.0", features = ["async-std"] }
 portal-proc-macro = { path = "crates/portal-proc-macro" }
 portal-wormhole = { path = "crates/portal-wormhole" }
 rfd = { version = "0.11.0", default-features = false, features = ["xdg-portal"] }
@@ -33,11 +34,6 @@ thiserror = "1.0.38"
 surf = "2.3.2"
 serde = { version = "1.0.164", features = ["derive"] }
 log = { version = "0.4.19", features = ["kv_unstable_std"] }
-
-[patch.crates-io]
-poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise" }
-eframe = { git = "https://github.com/emilk/egui", branch = "master" }
-egui = { git = "https://github.com/emilk/egui", branch = "master" }
 
 [workspace]
 members = [

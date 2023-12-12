@@ -1,7 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use clap::Parser;
-use eframe::{egui, IconData, Theme};
+use eframe::Theme;
+use egui::{vec2, IconData, ViewportBuilder};
 use portal::{PortalApp, StartupAction};
 use std::error::Error;
 
@@ -19,12 +20,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
 
     let default_theme = default_theme()?;
+    let mut viewport = ViewportBuilder::default().with_inner_size(vec2(320.0, 500.0));
+    if let Some(icon) = icon()? {
+        viewport = viewport.with_icon(icon);
+    }
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(320.0, 500.0)),
+        viewport,
         follow_system_theme: true,
         default_theme,
         run_and_return: false,
-        icon_data: icon()?,
         ..Default::default()
     };
     let startup_action = StartupAction::from_uri(args.uri.as_deref());

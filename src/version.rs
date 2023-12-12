@@ -47,7 +47,7 @@ impl AppVersion {
 
 pub(crate) async fn get_or_update_latest_app_version(ctx: Context) -> Option<AppVersion> {
     match ctx
-        .memory_mut(|m| m.data.get_persisted::<SavedAppVersion>(Id::null()))
+        .memory_mut(|m| m.data.get_persisted::<SavedAppVersion>(Id::NULL))
         .filter(is_recent)
     {
         Some(saved) => saved.version,
@@ -74,7 +74,7 @@ fn store_app_version(ctx: Context, version: Option<AppVersion>) {
         version,
         last_checked,
     };
-    ctx.memory_mut(|m| m.data.insert_persisted(Id::null(), saved_version));
+    ctx.memory_mut(|m| m.data.insert_persisted(Id::NULL, saved_version));
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

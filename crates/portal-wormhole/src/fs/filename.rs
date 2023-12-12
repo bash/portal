@@ -93,7 +93,9 @@ fn replace_consecutive<'a>(
     replacement: &'a str,
 ) {
     let mut index = 0;
-    while index < haystack.len() && let Some(range) = next_match(&haystack[index..], &mut pattern) {
+    while index < haystack.len()
+        && let Some(range) = next_match(&haystack[index..], &mut pattern)
+    {
         let absolute_range = (index + range.start)..(index + range.end);
         haystack.to_mut().replace_range(absolute_range, replacement);
         index += range.end;

@@ -26,10 +26,11 @@ const TRANSFER_REJECTED_MESSAGE: &str = "transfer rejected";
 
 impl From<TransferError> for PortalError {
     fn from(value: TransferError) -> Self {
-        if let TransferError::PeerError(ref message) = value && message == TRANSFER_REJECTED_MESSAGE {
+        if let TransferError::PeerError(ref message) = value
+            && message == TRANSFER_REJECTED_MESSAGE
+        {
             PortalError::TransferRejected(value)
-        }
-        else {
+        } else {
             PortalError::WormholeTransfer(value)
         }
     }

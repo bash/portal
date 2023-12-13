@@ -55,9 +55,18 @@ fn default_theme() -> Result<Theme, Box<dyn Error>> {
     Ok(Theme::Light)
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, all(debug_assertions, target_os = "macos"))))]
 fn icon() -> Result<Option<IconData>, Box<dyn Error>> {
     Ok(None)
+}
+
+#[cfg(all(debug_assertions, target_os = "macos"))]
+fn icon() -> Result<Option<IconData>, Box<dyn Error>> {
+    eframe::icon_data::from_png_bytes(include_bytes!(
+        "../build/macos/AppIcon.iconset/icon_256x256@2x.png"
+    ))
+    .map(Some)
+    .map_err(Into::into)
 }
 
 #[cfg(windows)]

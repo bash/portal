@@ -62,7 +62,7 @@ fn icon() -> Result<Option<IconData>, Box<dyn Error>> {
 
 #[cfg(windows)]
 fn icon() -> Result<Option<IconData>, Box<dyn Error>> {
-    IconData::try_from_png_bytes(include_bytes!("../build/windows/icon-256x256.png"))
+    eframe::icon_data::from_png_bytes(include_bytes!("../build/windows/icon-256x256.png"))
         .map(Some)
         .map_err(Into::into)
 }

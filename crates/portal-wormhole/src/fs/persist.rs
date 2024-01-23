@@ -37,8 +37,8 @@ mod tests {
     #[test]
     fn uses_original_file_name_when_possible() {
         let expected_path = PathBuf::from("bar/foo.txt");
-        let path =
-            open_with_conflict_resolution(&expected_path, open(VecDeque::default())).unwrap();
+        let path = open_with_conflict_resolution(&expected_path, open(VecDeque::default()))
+            .expect("open to succeed");
         assert_eq!(path, expected_path);
     }
 
@@ -52,7 +52,8 @@ mod tests {
             PathBuf::from("bar/foo (3).txt"),
         ];
         let expected_path = PathBuf::from("bar/foo (4).txt");
-        let path = open_with_conflict_resolution(&first_path, open(existing_paths.into())).unwrap();
+        let path = open_with_conflict_resolution(&first_path, open(existing_paths.into()))
+            .expect("open to succeed");
         assert_eq!(path, expected_path);
     }
 

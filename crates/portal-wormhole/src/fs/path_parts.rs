@@ -53,10 +53,10 @@ mod tests {
             assert_eq!(
                 expected,
                 PathParts::try_from(Path::new(input))
-                    .unwrap()
+                    .expect("input to be a valid path")
                     .to_path_with_counter(1)
                     .to_str()
-                    .unwrap()
+                    .expect("path to be valid unicode")
             );
         }
     }

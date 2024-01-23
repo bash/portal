@@ -6,6 +6,7 @@ use crate::{Progress, RequestRepaint};
 use async_std::fs::File;
 use futures::future::{Abortable, BoxFuture};
 use futures::Future;
+use log::warn;
 use magic_wormhole::transit::{Abilities, TransitInfo};
 use magic_wormhole::{transfer, Code, Wormhole, WormholeWelcome};
 use single_value_channel as svc;
@@ -140,7 +141,7 @@ fn progress_handler(
     mut report: impl Reporter,
 ) -> impl ProgressHandler {
     move |value, total| match transit_info.latest().clone() {
-        None => eprintln!("WARN: transit info not available"),
+        None => warn!("transit info unexpectedly missing in progress handler"),
         Some(transit_info) => report(SendingProgress::Sending(
             transit_info,
             Progress { value, total },

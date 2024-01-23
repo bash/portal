@@ -3377,6 +3377,7 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "lazy_static",
+ "log",
  "magic-wormhole",
  "oneshot",
  "single_value_channel",

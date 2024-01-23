@@ -58,7 +58,8 @@ where
 {
     cancellation.error_if_canceled()?;
 
-    let relative_path = relative_path.unwrap_or_else(|| Path::new(path.file_name().unwrap()));
+    let relative_path = relative_path
+        .unwrap_or_else(|| Path::new(path.file_name().expect("path should be absolute")));
 
     if path.is_dir() {
         add_folder_to_zip(path, Some(relative_path), writer, cancellation)?;

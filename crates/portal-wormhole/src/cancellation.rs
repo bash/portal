@@ -42,7 +42,7 @@ impl CancellationToken {
     /// Registers a [`FnOnce`] to be called on cancellation.
     /// The func is called immediately if this token is already canceled.
     pub(crate) fn register(&self, func: impl FnOnce() + Send + Sync + 'static) {
-        let mut funcs = self.inner.funcs.write().unwrap();
+        let mut funcs = self.inner.funcs.write().expect("lock poisoned");
 
         if self.is_canceled() {
             func();
@@ -87,7 +87,7 @@ impl CancellationSource {
     }
 
     fn cancel_and_take_funcs(&self) -> Vec<Box<dyn FnOnce() + Send + Sync>> {
-        let mut funcs = self.inner.funcs.write().unwrap();
+        let mut funcs = self.inner.funcs.write().expect("lock poisoned");
         self.inner.canceled.store(true, Ordering::Relaxed);
         mem::take(&mut *funcs)
     }

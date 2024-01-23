@@ -1,6 +1,3 @@
-#![warn(clippy::str_to_string)]
-#![warn(clippy::unwrap_used)]
-
 use eframe::Theme;
 use egui::emath::Align;
 use egui::{self, Layout, Ui};

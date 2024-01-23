@@ -35,11 +35,22 @@ surf = "2.3.2"
 serde = { version = "1.0.164", features = ["derive"] }
 log = { version = "0.4.19", features = ["kv_unstable_std"] }
 
+[lints]
+workspace = true
+
 [workspace]
 members = [
     "crates/portal-proc-macro",
     "crates/portal-wormhole",
 ]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+out_of_bounds_indexing = "allow"
+str_to_string = "warn"
+unwrap_used = "warn"
 
 [target.'cfg(windows)'.build-dependencies]
 ico-builder = "0.1.0"

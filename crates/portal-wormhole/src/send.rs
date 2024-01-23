@@ -139,12 +139,12 @@ fn progress_handler(
     mut transit_info: svc::Receiver<Option<Arc<TransitInfo>>>,
     mut report: impl Reporter,
 ) -> impl ProgressHandler {
-    move |value, total| {
-        let transit_info = transit_info.latest().clone().unwrap();
-        report(SendingProgress::Sending(
+    move |value, total| match transit_info.latest().clone() {
+        None => eprintln!("WARN: transit info not available"),
+        Some(transit_info) => report(SendingProgress::Sending(
             transit_info,
             Progress { value, total },
-        ))
+        )),
     }
 }
 

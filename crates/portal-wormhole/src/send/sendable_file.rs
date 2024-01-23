@@ -44,7 +44,7 @@ impl SendableFile {
 
     pub(crate) fn file_name(&self) -> &OsStr {
         match self {
-            SendableFile::Path(path) => path.file_name().unwrap(),
+            SendableFile::Path(path) => path.file_name().expect("path should be absolute"),
             SendableFile::Temporary(file_name, _) => file_name,
         }
     }

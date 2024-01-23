@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use magic_wormhole::transit::{RelayHint, TransitInfo, DEFAULT_RELAY_SERVER};
 use single_value_channel as svc;
 use std::net::SocketAddr;
+use url::Url;
 
 lazy_static! {
     pub static ref RELAY_HINTS: Vec<RelayHint> = relay_hints();
@@ -37,6 +38,13 @@ pub fn progress_handler(
 }
 
 fn relay_hints() -> Vec<RelayHint> {
-    let hint = RelayHint::from_urls(None, [DEFAULT_RELAY_SERVER.parse().unwrap()]).unwrap();
+    let hint = RelayHint::from_urls(None, [default_relay_server()])
+        .expect("constant relay hints should be valid");
     vec![hint]
+}
+
+fn default_relay_server() -> Url {
+    DEFAULT_RELAY_SERVER
+        .parse()
+        .expect("constant URL should be valid")
 }

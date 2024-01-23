@@ -38,7 +38,8 @@ impl SharableWormholeTransferUri {
 
 impl From<&SharableWormholeTransferUri> for Url {
     fn from(value: &SharableWormholeTransferUri) -> Self {
-        let mut url = Url::parse("https://wormhole-transfer.link").unwrap();
+        let mut url =
+            Url::parse("https://wormhole-transfer.link").expect("constant URL should be valid");
         url.set_fragment(Some(&value.code));
         url
     }

@@ -25,6 +25,8 @@ mod windows {
 
         let path = convert_path(path.as_os_str())?;
         let operation: Vec<u16> = OsStr::new("open\0").encode_wide().collect();
+        // SAFETY: Pointers are valid for the duration of the function
+        // since we own the values that they point to.
         let result = unsafe {
             let mut info = SHELLEXECUTEINFOW {
                 cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,

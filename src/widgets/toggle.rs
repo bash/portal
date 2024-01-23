@@ -1,5 +1,5 @@
-use egui::widget_text::WidgetTextGalley;
-use egui::{vec2, Pos2, Rect, Response, TextStyle, Ui, Vec2, WidgetText};
+use egui::{vec2, Galley, Pos2, Rect, Response, TextStyle, Ui, Vec2, WidgetText};
+use std::sync::Arc;
 
 /// Two-state toggle switch with labels on both sides.
 /// ``` text
@@ -106,7 +106,7 @@ fn paint(ui: &mut egui::Ui, on: bool, response: &Response, space: AllocatedSpace
     paint_text(ui, response, space.text_right, text_right_rect.min, on);
 }
 
-fn paint_text(ui: &mut Ui, response: &Response, text: WidgetTextGalley, pos: Pos2, selected: bool) {
+fn paint_text(ui: &mut Ui, response: &Response, text: Arc<Galley>, pos: Pos2, selected: bool) {
     let visuals = ui.style().interact_selectable(response, selected);
 
     let color = if selected {
@@ -115,7 +115,7 @@ fn paint_text(ui: &mut Ui, response: &Response, text: WidgetTextGalley, pos: Pos
         ui.style().visuals.strong_text_color()
     };
 
-    text.paint_with_fallback_color(ui.painter(), pos, color);
+    ui.painter().galley(pos, text, color);
 }
 
 // Adopted from https://github.com/emilk/egui/blob/master/crates/egui_demo_lib/src/demo/toggle_switch.rs
@@ -139,8 +139,8 @@ fn text_offset(text_size: Vec2, max_text_size: Vec2) -> Vec2 {
 
 struct AllocatedSpace {
     rect: Rect,
-    text_left: WidgetTextGalley,
-    text_right: WidgetTextGalley,
+    text_left: Arc<Galley>,
+    text_right: Arc<Galley>,
     max_text_size: Vec2,
     toggle_size: Vec2,
 }

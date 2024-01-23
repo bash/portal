@@ -44,13 +44,11 @@ members = [
     "crates/portal-wormhole",
 ]
 
-[workspace.lints.rust]
-unsafe_code = "forbid"
-
 [workspace.lints.clippy]
 out_of_bounds_indexing = "allow"
 str_to_string = "warn"
 unwrap_used = "warn"
+undocumented_unsafe_blocks = "forbid"
 
 [target.'cfg(windows)'.build-dependencies]
 ico-builder = "0.1.0"

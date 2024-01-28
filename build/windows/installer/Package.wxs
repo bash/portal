@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
     <Package
         Name="Portal"
-        Manufacturer="Ruben Schmidmeister"
+        Manufacturer="Tau"
         Version="0.2.1"
         UpgradeCode="dd827eb7-1309-4d4e-9eea-50022cb17bad"
         Scope="perUserOrMachine">

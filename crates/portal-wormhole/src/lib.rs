@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 mod error;
 pub mod receive;
 pub use self::error::*;

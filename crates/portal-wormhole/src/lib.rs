@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-#![feature(trait_alias)]
 
 mod error;
 pub mod receive;
@@ -15,9 +14,12 @@ pub use magic_wormhole::transit::TransitInfo;
 pub use magic_wormhole::uri::WormholeTransferUri;
 pub use magic_wormhole::Code;
 use std::fmt;
+use trait_set::trait_set;
 use url::Url;
 
-pub trait RequestRepaint = FnMut() + Clone + Send + Sync + 'static;
+trait_set! {
+    pub trait RequestRepaint = FnMut() + Clone + Send + Sync + 'static;
+}
 
 #[derive(Default, Copy, Clone)]
 pub struct Progress {

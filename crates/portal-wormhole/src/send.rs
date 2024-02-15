@@ -11,6 +11,7 @@ use magic_wormhole::transit::{Abilities, TransitInfo};
 use magic_wormhole::{transfer, Code, Wormhole, WormholeWelcome};
 use single_value_channel as svc;
 use std::sync::Arc;
+use trait_set::trait_set;
 
 mod request;
 pub use self::request::{CachedSendRequest, SendRequest};
@@ -113,7 +114,9 @@ async fn send_impl_with_sendable_file(
     .await
 }
 
-trait Reporter = FnMut(SendingProgress) + Clone + 'static;
+trait_set! {
+    trait Reporter = FnMut(SendingProgress) + Clone + 'static;
+}
 
 fn report(
     updater: svc::Updater<SendingProgress>,

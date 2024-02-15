@@ -3395,6 +3395,7 @@ dependencies = [
  "tailcall",
  "tempfile",
  "thiserror",
+ "trait-set",
  "url",
  "walkdir",
  "zip",
@@ -4741,6 +4742,17 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebeb235c5847e2f82cfe0f07eb971d1e5f6804b18dac2ae16349cc604380f82f"
 dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "trait-set"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b79e2e9c9ab44c6d7c20d5976961b47e8f49ac199154daa514b77cd1ab536625"
+dependencies = [
+ "proc-macro2",
  "quote",
  "syn 1.0.109",
 ]

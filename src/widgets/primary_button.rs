@@ -1,15 +1,5 @@
 use egui::{Button, Response, Ui, Vec2, Widget, WidgetText};
 
-pub trait UiExt {
-    fn primary_button(&mut self, text: impl Into<WidgetText>) -> Response;
-}
-
-impl UiExt for Ui {
-    fn primary_button(&mut self, text: impl Into<WidgetText>) -> Response {
-        self.add(PrimaryButton::new(text))
-    }
-}
-
 pub struct PrimaryButton {
     text: WidgetText,
     min_size: Vec2,

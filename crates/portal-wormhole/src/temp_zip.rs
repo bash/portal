@@ -6,7 +6,7 @@ use std::io::{self, Seek, Write};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
-use zip::write::FileOptions;
+use zip::write::{FileOptions, SimpleFileOptions};
 use zip::ZipWriter;
 
 /// Packs a folder as a Zip file recursively.
@@ -103,7 +103,7 @@ where
         let relative_path_as_string = relative_path.to_string_lossy();
 
         if entry.file_type().is_dir() {
-            writer.add_directory(relative_path_as_string, FileOptions::default())?;
+            writer.add_directory(relative_path_as_string, SimpleFileOptions::default())?;
         } else if entry.file_type().is_file() {
             add_file_to_zip(entry.path(), &relative_path, writer)?;
         } else {
@@ -147,7 +147,7 @@ where
     Ok(())
 }
 
-fn file_options(path: &Path) -> Result<FileOptions, PortalError> {
+fn file_options(path: &Path) -> Result<SimpleFileOptions, PortalError> {
     // Files >= 4 GiB require large_file
     let file_size = fs::metadata(path)?.len();
     let large_file = file_size > u32::MAX as u64;

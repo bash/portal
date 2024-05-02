@@ -1,5 +1,5 @@
 use egui::{Context, Id};
-use log::{as_display, warn};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{Duration, SystemTime};
@@ -104,7 +104,7 @@ async fn fetch_latest_version() -> Option<AppVersion> {
         }),
         Err(err) => {
             warn!(
-                err = as_display!(err);
+                err:? = err;
                 "Failed to fetch latest version from GitHub"
             );
             None

@@ -16,7 +16,6 @@ mod receive;
 pub(crate) use receive::*;
 mod send;
 pub(crate) use send::*;
-mod shell;
 mod startup_action;
 pub use startup_action::*;
 mod main_view;

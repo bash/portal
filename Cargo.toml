@@ -29,7 +29,6 @@ rfd = { version = "0.14.1" }
 replace_with = "0.1.7"
 tracing-subscriber = "0.3"
 ubyte = "0.10.3"
-winapi = "0.3.9"
 thiserror = "1.0.38"
 surf = "2.3.2"
 serde = { version = "1.0.164", features = ["derive"] }

@@ -3499,7 +3499,6 @@ dependencies = [
  "thiserror",
  "tracing-subscriber",
  "ubyte",
- "winapi",
  "winit",
  "winresource",
 ]

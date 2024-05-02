@@ -249,7 +249,7 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
                 .clicked()
                 || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::C))
             {
-                ui.output_mut(|output| output.copied_text = code.0.clone());
+                ui.output_mut(|output| output.copied_text.clone_from(&code.0));
             }
 
             if ui

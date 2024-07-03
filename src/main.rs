@@ -13,13 +13,14 @@ struct Cli {
     uri: Option<String>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
 
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 
-    let default_theme = default_theme()?;
+    let default_theme = system_theme().await.unwrap_or(Theme::Light);
     let mut viewport = ViewportBuilder::default().with_inner_size(vec2(320.0, 500.0));
     if let Some(icon) = icon()? {
         viewport = viewport.with_icon(icon);
@@ -43,16 +44,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// Eframe doesn't follow the system theme on Linux.
 /// See: <https://github.com/rust-windowing/winit/issues/1549>
 #[cfg(target_os = "linux")]
-fn default_theme() -> Result<Theme, Box<dyn Error>> {
-    match dark_light::detect() {
-        dark_light::Mode::Dark => Ok(Theme::Dark),
-        dark_light::Mode::Light | dark_light::Mode::Default => Ok(Theme::Light),
+async fn system_theme() -> Option<Theme> {
+    use ashpd::desktop::settings::{ColorScheme, Settings};
+    match Settings::new().await.ok()?.color_scheme().await.ok()? {
+        ColorScheme::NoPreference | ColorScheme::PreferLight => Some(Theme::Light),
+        ColorScheme::PreferDark => Some(Theme::Dark),
     }
 }
 
 #[cfg(not(target_os = "linux"))]
-fn default_theme() -> Result<Theme, Box<dyn Error>> {
-    Ok(Theme::Light)
+async fn system_theme() -> Option<Theme> {
+    None
 }
 
 #[cfg(not(any(windows, all(debug_assertions, target_os = "macos"))))]

@@ -34,7 +34,9 @@ fn toggle_ui(
         response.mark_changed();
     }
 
-    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *on, ""));
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), *on, "")
+    });
 
     if ui.is_rect_visible(space.rect) {
         paint(ui, *on, &response, space);

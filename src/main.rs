@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     eframe::run_native(
         "Portal",
         options,
-        Box::new(move |cc| Box::new(PortalApp::new(cc, startup_action, default_theme))),
+        Box::new(move |cc| Ok(Box::new(PortalApp::new(cc, startup_action, default_theme)))),
     )?;
     Ok(())
 }

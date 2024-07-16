@@ -68,7 +68,11 @@ impl PortalApp {
 impl eframe::App for PortalApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.visuals.update(self.accent(), ctx, frame);
-        app_menu(ctx, self.version.ready().cloned().flatten());
+        app_menu(
+            ctx,
+            &mut self.visuals,
+            self.version.ready().cloned().flatten(),
+        );
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {

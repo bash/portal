@@ -1,12 +1,14 @@
 use eframe::Theme;
 use egui::epaint::hex_color;
 use egui::{Context, Visuals};
+use egui_theme_switch::ThemePreference;
 use log::trace;
 
 #[derive(Debug)]
 pub(crate) struct CustomVisuals {
     current: Option<(Theme, Accent)>,
     default_theme: Theme,
+    preference: ThemePreference,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -20,15 +22,28 @@ impl CustomVisuals {
         Self {
             current: None,
             default_theme,
+            preference: ThemePreference::System,
         }
     }
 
-    pub(crate) fn update(&mut self, accent: Accent, ctx: &Context, frame: &mut eframe::Frame) {
-        let theme = frame.info().system_theme.unwrap_or(self.default_theme);
+    pub(crate) fn update(&mut self, accent: Accent, ctx: &Context, frame: &eframe::Frame) {
+        let theme = self.resolve_theme(frame);
         if self.current != Some((theme, accent)) {
             ctx.set_visuals(visuals(theme, accent));
             trace!("Updating visuals for theme {theme:?} and accent {accent:?}");
             self.current = Some((theme, accent));
+        }
+    }
+
+    pub(crate) fn preference_mut(&mut self) -> &mut ThemePreference {
+        &mut self.preference
+    }
+
+    fn resolve_theme(&self, frame: &eframe::Frame) -> Theme {
+        match self.preference {
+            ThemePreference::Dark => Theme::Dark,
+            ThemePreference::Light => Theme::Light,
+            ThemePreference::System => frame.info().system_theme.unwrap_or(self.default_theme),
         }
     }
 }

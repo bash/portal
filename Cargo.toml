@@ -17,9 +17,8 @@ path = "src/main.rs"
 async-std = "1.12.0"
 clap = { version = "4.1.8", features = ["derive"] }
 color-hex = "0.2.0"
-eframe = { version = "0.27.1", default-features = false, features = ["accesskit", "glow", "persistence"] }
-egui = { version = "0.27.2", default-features = false, features = ["color-hex"] }
-winit = { version = "0.29.15", features = ["wayland-csd-adwaita"] } # Should be the same version that eframe depends on.
+eframe = { version = "0.28.0", features = ["persistence"] }
+egui = { version = "0.28.0", features = ["color-hex"] }
 futures = "0.3.26"
 opener = { version = "0.7.0", features = ["reveal"] }
 poll-promise = { version = "0.3.0", features = ["async-std"] }
@@ -33,6 +32,7 @@ thiserror = "1.0.38"
 surf = "2.3.2"
 serde = { version = "1.0.164", features = ["derive"] }
 log = { version = "0.4.19", features = ["kv"] }
+egui-theme-switch = "0.1.0"
 
 [lints]
 workspace = true

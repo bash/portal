@@ -32,7 +32,7 @@ thiserror = "1.0.38"
 surf = "2.3.2"
 serde = { version = "1.0.164", features = ["derive"] }
 log = { version = "0.4.19", features = ["kv"] }
-egui-theme-switch = "0.1.0"
+egui-theme-switch = { version = "0.1.1", features = ["serde"] }
 
 [lints]
 workspace = true

@@ -13,7 +13,6 @@ pub(crate) fn app_menu(
         menu::bar(ui, |ui| {
             let version = AppVersion::current();
 
-            #[cfg(debug_assertions)]
             ui.menu_button("View", |ui| {
                 ui.add(ThemeSwitch::new(visuals.preference_mut()));
             });

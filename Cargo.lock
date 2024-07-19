@@ -1692,11 +1692,12 @@ dependencies = [
 
 [[package]]
 name = "egui-theme-switch"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da81ced9427e06b77b48a99f3b2cdcd0e128865c5606527bef756662eb3058f9"
+checksum = "aef15fe31c123917ee20d27a898bdf4a584ab3d06bef0bccd6836f0a304bf15b"
 dependencies = [
  "egui",
+ "serde",
 ]
 
 [[package]]
@@ -2860,7 +2861,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
-use eframe::Theme;
+use eframe::{get_value, set_value, CreationContext, Theme};
 use egui::epaint::hex_color;
-use egui::{Context, Visuals};
+use egui::{Context, ViewportCommand, Visuals};
 use egui_theme_switch::ThemePreference;
 use log::trace;
 
@@ -17,22 +17,34 @@ pub(crate) enum Accent {
     Blue,
 }
 
+const THEME_PREFERENCE_KEY: &str = "theme-preference";
+
 impl CustomVisuals {
-    pub(crate) fn new(default_theme: Theme) -> Self {
+    pub(crate) fn new(default_theme: Theme, cc: &CreationContext) -> Self {
+        let preference = cc
+            .storage
+            .and_then(|s| get_value(s, THEME_PREFERENCE_KEY))
+            .unwrap_or(ThemePreference::System);
+
         Self {
             current: None,
             default_theme,
-            preference: ThemePreference::System,
+            preference,
         }
     }
 
     pub(crate) fn update(&mut self, accent: Accent, ctx: &Context, frame: &eframe::Frame) {
         let theme = self.resolve_theme(frame);
         if self.current != Some((theme, accent)) {
-            ctx.set_visuals(visuals(theme, accent));
             trace!("Updating visuals for theme {theme:?} and accent {accent:?}");
+            ctx.set_visuals(visuals(theme, accent));
+            ctx.send_viewport_cmd(ViewportCommand::SetTheme(self.preference.into()));
             self.current = Some((theme, accent));
         }
+    }
+
+    pub(crate) fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        set_value(storage, THEME_PREFERENCE_KEY, &self.preference)
     }
 
     pub(crate) fn preference_mut(&mut self) -> &mut ThemePreference {

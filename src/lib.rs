@@ -56,7 +56,7 @@ impl PortalApp {
         cc.egui_ctx.set_fonts(font_definitions());
 
         PortalApp {
-            visuals: CustomVisuals::new(default_theme),
+            visuals: CustomVisuals::new(default_theme, cc),
             state: PortalAppState::from(action),
             version: cc
                 .egui_ctx
@@ -88,6 +88,10 @@ impl eframe::App for PortalApp {
                 }
             });
         });
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.visuals.save(storage)
     }
 }
 

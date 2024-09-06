@@ -41,6 +41,7 @@ workspace = true
 members = [
     "crates/portal-proc-macro",
     "crates/portal-wormhole",
+    "xtask",
 ]
 
 [workspace.lints.clippy]
@@ -50,7 +51,6 @@ unwrap_used = "warn"
 undocumented_unsafe_blocks = "deny" # Can't have forbid here because #[derive(Parser)] wants to allow all clippy restrictions.
 
 [target.'cfg(windows)'.build-dependencies]
-ico-builder = "0.1.0"
 winresource = "0.1.15"
 
 [target.'cfg(target_os = "linux")'.dependencies]

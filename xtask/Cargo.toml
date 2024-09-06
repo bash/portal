@@ -1,0 +1,10 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ico-builder = "0.1.0"
+
+[lints]
+workspace = true

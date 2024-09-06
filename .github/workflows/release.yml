@@ -10,6 +10,7 @@ env:
   #   if you use special characters, take a look at the 'Make paths relative' step in the 'build-web' job
   EXECUTABLE_NAME: portal
   OSX_APP_NAME: Portal
+  CARGO_TERM_COLOR: always
 
 permissions:
   contents: write

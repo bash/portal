@@ -12,7 +12,7 @@
         <MediaTemplate EmbedCab="yes"/>
 
         <!-- Installer Icon -->
-        <Icon Id="icon.ico" SourceFile="..\..\..\target\icon.ico"/>
+        <Icon Id="icon.ico" SourceFile="..\portal.ico"/>
         <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
         <!-- Sets the default installation folder -->
@@ -20,8 +20,8 @@
             <Directory Id="INSTALLFOLDER" Name="!(bind.Property.ProductName)" />
         </StandardDirectory>
 
-         <!-- Shows a UI that allows customizing the install location -->
-        <ui:WixUI Id="WixUI_CustomInstallDir" InstallDirectory="INSTALLFOLDER" />
+        <!-- Shows a UI that allows customizing the install location -->
+        <ui:WixUI Id="WixUI_InstallDir_NoLicense" InstallDirectory="INSTALLFOLDER" />
 
         <Feature Id="Main">
             <ComponentGroupRef Id="MainComponent" />

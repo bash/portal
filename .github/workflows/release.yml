@@ -103,14 +103,13 @@ jobs:
         uses: dawidd6/action-get-tag@v1
       - name: Checkout repository
         uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: taiki-e/install-action@v2
         with:
-          global-json-file: build/windows/installer/global.json
-      - name: Build release
-        run: |
-          cargo build --release
+          tool: just
+      - name: Build
+        run: cargo build --release
       - name: Create Installer
-        run: dotnet build -c Release build/windows/installer/PortalInstaller.wixproj --output installer
+        run: just build-windows-installer
       - name: Zip release
         uses: vimtor/action-zip@v1
         with:
@@ -128,7 +127,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: installer/en-US/portal-installer.msi
+          file: target/windows-installer/portal-installer.msi
           asset_name: ${{ env.EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_windows.msi
           tag: ${{ github.ref }}
           overwrite: true

@@ -1,20 +1,15 @@
 use crate::font::{ICON_REFRESH_CW, ICON_TAG};
 use crate::version::AppVersion;
-use crate::visuals::CustomVisuals;
 use egui::{menu, OpenUrl};
-use egui_theme_switch::ThemeSwitch;
+use egui_theme_switch::global_theme_switch;
 
-pub(crate) fn app_menu(
-    ctx: &egui::Context,
-    visuals: &mut CustomVisuals,
-    latest_version: Option<AppVersion>,
-) {
+pub(crate) fn app_menu(ctx: &egui::Context, latest_version: Option<AppVersion>) {
     egui::TopBottomPanel::top("top panel").show(ctx, |ui| {
         menu::bar(ui, |ui| {
             let version = AppVersion::current();
 
             ui.menu_button("View", |ui| {
-                ui.add(ThemeSwitch::new(visuals.preference_mut()));
+                global_theme_switch(ui);
             });
 
             ui.menu_button("Help", |ui| {

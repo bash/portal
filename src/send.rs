@@ -267,7 +267,7 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
 
 struct SendRequestDisplay<'a>(&'a SendRequest);
 
-impl<'a> fmt::Display for SendRequestDisplay<'a> {
+impl fmt::Display for SendRequestDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             SendRequest::File(path) => write!(f, "file \"{}\"", filename_or_self(path).display()),

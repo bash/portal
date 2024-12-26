@@ -121,7 +121,7 @@ struct GitHubRelease {
 
 struct TagName<'a>(&'a str);
 
-impl<'a> fmt::Display for TagName<'a> {
+impl fmt::Display for TagName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "v")?;
         self.0.fmt(f)

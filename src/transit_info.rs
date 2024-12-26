@@ -4,7 +4,7 @@ use std::fmt;
 
 pub struct TransitInfoDisplay<'a>(pub &'a TransitInfo);
 
-impl<'a> fmt::Display for TransitInfoDisplay<'a> {
+impl fmt::Display for TransitInfoDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use TransitInfo::*;
         match self.0 {

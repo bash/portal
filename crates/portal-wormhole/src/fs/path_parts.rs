@@ -21,7 +21,7 @@ impl<'a> TryFrom<&'a Path> for PathParts<'a> {
     }
 }
 
-impl<'a> PathParts<'a> {
+impl PathParts<'_> {
     pub(crate) fn to_path_with_counter(&self, counter: u64) -> PathBuf {
         if counter == 0 {
             self.path.to_owned()

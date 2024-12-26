@@ -24,18 +24,24 @@ pub fn font_definitions() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     fonts.font_data.insert(
         INTER_MEDIUM.to_owned(),
-        FontData::from_static(include_bytes!("../assets/inter/Inter-Medium.otf")),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../assets/inter/Inter-Medium.otf"
+        ))),
     );
     fonts.font_data.insert(
         INTER_BOLD.to_owned(),
-        FontData::from_static(include_bytes!("../assets/inter/Inter-Bold.otf")),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../assets/inter/Inter-Bold.otf"
+        ))),
     );
     fonts.font_data.insert(
         LUCIDE_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../assets/lucide/lucide.ttf")).tweak(FontTweak {
-            y_offset_factor: 0.07,
-            ..Default::default()
-        }),
+        Arc::new(
+            FontData::from_static(include_bytes!("../assets/lucide/lucide.ttf")).tweak(FontTweak {
+                y_offset_factor: 0.07,
+                ..Default::default()
+            }),
+        ),
     );
     fonts.families.insert(
         FontFamily::Proportional,

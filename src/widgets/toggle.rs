@@ -17,7 +17,7 @@ pub fn toggle<'a>(
     on: &'a mut bool,
     text_left: impl Into<WidgetText> + 'a,
     text_right: impl Into<WidgetText> + 'a,
-) -> impl egui::Widget + '_ {
+) -> impl egui::Widget + 'a {
     move |ui: &mut egui::Ui| toggle_ui(ui, on, text_left, text_right)
 }
 

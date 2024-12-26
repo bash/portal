@@ -10,7 +10,7 @@ futures = "0.3.26"
 magic-wormhole = "0.6.0"
 single_value_channel = "1.2.2"
 tempfile = "3.3.0"
-thiserror = "1.0.38"
+thiserror = "2.0.9"
 oneshot = { version = "0.1.5", default-features = false, features = ["std"] }
 lazy_static = "1.4.0"
 zip = "2.1"

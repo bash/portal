@@ -26,7 +26,7 @@ pub struct ReceiveView {
 impl ReceiveView {
     pub fn new(action: ReceiveFileAction) -> Self {
         Self {
-            state: ReceiveState::Initial(action.code.0),
+            state: ReceiveState::Initial(action.code.to_string()),
         }
     }
 }
@@ -64,9 +64,9 @@ states! {
         }
     }
 
-    async state Receiving(controller: ReceivingController, filename: PathBuf) -> ReceiveResult {
+    async state Receiving(controller: ReceivingController, filename: String) -> ReceiveResult {
         new(receive_request: ReceiveRequestController) {
-            let filename = receive_request.filename().to_owned();
+            let filename = receive_request.file_name();
             let ctx = ui.ctx().clone();
             let (future, controller) = receive_request.accept(move || ctx.request_repaint());
             (Box::pin(future), controller, filename)
@@ -219,7 +219,7 @@ fn show_connected_page(
 
     let text = format!(
         "Your peer wants to send you \"{}\" (Size: {}).\nDo you want to download this file?",
-        receive_request.filename().display(),
+        receive_request.file_name(),
         ByteDisplay(receive_request.filesize().bytes())
     );
 
@@ -235,7 +235,7 @@ fn show_connected_page(
     })
 }
 
-fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filename: &Path) {
+fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filename: &str) {
     let Progress {
         value: received,
         total,
@@ -258,7 +258,7 @@ fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filena
         None => page_with_content(
             ui,
             "Connected to Peer",
-            format!("Preparing to receive file \"{}\"", filename.display()),
+            format!("Preparing to receive file \"{filename}\""),
             ICON_DOWNLOAD,
             |ui| {
                 ui.spinner();
@@ -267,12 +267,8 @@ fn show_receiving_page(ui: &mut Ui, controller: &mut ReceivingController, filena
     }
 }
 
-fn transit_info_message(transit_info: &TransitInfo, filename: &Path) -> String {
-    format!(
-        "File \"{}\"{}",
-        filename.display(),
-        TransitInfoDisplay(transit_info)
-    )
+fn transit_info_message(transit_info: &TransitInfo, filename: &str) -> String {
+    format!("File \"{filename}\"{}", TransitInfoDisplay(transit_info))
 }
 
 fn show_completed_page(ui: &mut Ui, downloaded_path: &Path) -> Option<CompletedPageResponse> {

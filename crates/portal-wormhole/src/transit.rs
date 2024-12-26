@@ -2,16 +2,15 @@ use crate::{Progress, RequestRepaint};
 use lazy_static::lazy_static;
 use magic_wormhole::transit::{RelayHint, TransitInfo, DEFAULT_RELAY_SERVER};
 use single_value_channel as svc;
-use std::net::SocketAddr;
 use url::Url;
 
 lazy_static! {
     pub static ref RELAY_HINTS: Vec<RelayHint> = relay_hints();
 }
 
-pub trait TransitHandler: FnOnce(TransitInfo, SocketAddr) {}
+pub trait TransitHandler: FnOnce(TransitInfo) {}
 
-impl<F> TransitHandler for F where F: FnOnce(TransitInfo, SocketAddr) {}
+impl<F> TransitHandler for F where F: FnOnce(TransitInfo) {}
 
 pub trait ProgressHandler: FnMut(u64, u64) + 'static {}
 
@@ -21,7 +20,7 @@ pub fn transit_handler(
     sender: ::oneshot::Sender<TransitInfo>,
     mut request_repaint: impl RequestRepaint,
 ) -> impl TransitHandler {
-    move |transit_info, _| {
+    move |transit_info| {
         _ = sender.send(transit_info);
         request_repaint();
     }

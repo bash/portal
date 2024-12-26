@@ -8,7 +8,7 @@ use futures::future::{Abortable, BoxFuture};
 use futures::Future;
 use log::warn;
 use magic_wormhole::transit::{Abilities, TransitInfo};
-use magic_wormhole::{transfer, Code, Wormhole, WormholeWelcome};
+use magic_wormhole::{transfer, Code, MailboxConnection, Wormhole};
 use single_value_channel as svc;
 use std::sync::Arc;
 use trait_set::trait_set;
@@ -93,8 +93,8 @@ async fn send_impl_with_sendable_file(
 
     report(SendingProgress::Connecting);
     let wormhole = async {
-        let (welcome, wormhole_future) = connect().await?;
-        report(SendingProgress::Connected(welcome.code));
+        let (code, wormhole_future) = connect().await?;
+        report(SendingProgress::Connected(code));
 
         let wormhole = wormhole_future.await?;
         report(SendingProgress::PreparingToSend);
@@ -132,7 +132,7 @@ fn transit_handler(
     updater: svc::Updater<Option<Arc<TransitInfo>>>,
     mut report: impl Reporter,
 ) -> impl TransitHandler {
-    move |transit_info, _| {
+    move |transit_info| {
         let transit_info = Arc::new(transit_info);
         _ = updater.update(Some(Arc::clone(&transit_info)));
         report(SendingProgress::Sending(transit_info, Progress::default()));
@@ -168,9 +168,9 @@ async fn send_file(
         wormhole,
         RELAY_HINTS.clone(),
         &mut file,
-        sendable_file.file_name(),
+        sendable_file.file_name().to_string_lossy(),
         file_size,
-        Abilities::ALL_ABILITIES,
+        Abilities::ALL,
         transit_handler,
         progress_handler,
         async {
@@ -187,15 +187,12 @@ async fn send_file(
     }
 }
 
-async fn connect() -> Result<
-    (
-        WormholeWelcome,
-        BoxFuture<'static, Result<Wormhole, PortalError>>,
-    ),
-    PortalError,
-> {
-    let (welcome, future) = Wormhole::connect_without_code(transfer::APP_CONFIG, 4).await?;
-    Ok((welcome, Box::pin(async { Ok(future.await?) })))
+async fn connect() -> Result<(Code, BoxFuture<'static, Result<Wormhole, PortalError>>), PortalError>
+{
+    let mailbox = MailboxConnection::create(transfer::APP_CONFIG, 4).await?;
+    let code = mailbox.code().clone();
+    let future = Wormhole::connect(mailbox);
+    Ok((code, Box::pin(async { Ok(future.await?) })))
 }
 
 trait ResultExt<T> {

@@ -12,11 +12,11 @@ use futures::future::Abortable;
 use futures::Future;
 use magic_wormhole::transfer::{self, ReceiveRequest};
 use magic_wormhole::transit::{Abilities, TransitInfo};
-use magic_wormhole::{Code, Wormhole};
+use magic_wormhole::{Code, MailboxConnection, Wormhole};
 use single_value_channel as svc;
 use std::fs::{self, OpenOptions};
 use std::mem;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub type ConnectResult = Result<ReceiveRequestController, PortalError>;
 pub type ReceiveResult = Result<PathBuf, PortalError>;
@@ -41,8 +41,14 @@ impl ConnectingController {
 }
 
 async fn connect_impl(code: Code, cancellation: CancellationToken) -> ConnectResult {
-    let (_, wormhole) = Abortable::new(
-        Wormhole::connect_with_code(transfer::APP_CONFIG, code),
+    const ALLOCATE_NAMEPLATE_IF_MISSING: bool = false;
+    let mailbox = Abortable::new(
+        MailboxConnection::connect(transfer::APP_CONFIG, code, ALLOCATE_NAMEPLATE_IF_MISSING),
+        cancellation.as_abort_registration(),
+    )
+    .await??;
+    let wormhole = Abortable::new(
+        Wormhole::connect(mailbox),
         cancellation.as_abort_registration(),
     )
     .await??;
@@ -50,7 +56,7 @@ async fn connect_impl(code: Code, cancellation: CancellationToken) -> ConnectRes
     transfer::request_file(
         wormhole,
         RELAY_HINTS.clone(),
-        Abilities::ALL_ABILITIES,
+        Abilities::ALL,
         cancellation.as_future(),
     )
     .await?
@@ -63,12 +69,12 @@ pub struct ReceiveRequestController {
 }
 
 impl ReceiveRequestController {
-    pub fn filename(&self) -> &Path {
-        &self.receive_request.filename
+    pub fn file_name(&self) -> String {
+        self.receive_request.file_name()
     }
 
     pub fn filesize(&self) -> u64 {
-        self.receive_request.filesize
+        self.receive_request.file_size()
     }
 
     pub fn accept(
@@ -130,10 +136,10 @@ async fn accept(
     progress_handler: impl ProgressHandler,
     cancel: oneshot::Receiver<()>,
 ) -> ReceiveResult {
-    let untrusted_filename = receive_request.filename.clone();
+    let untrusted_filename = receive_request.file_name();
     let base_path = {
         let mut path = dirs::download_dir().expect("Unable to detect downloads directory");
-        path.push(sanitize_file_name(untrusted_filename.to_string_lossy(), "_").as_ref());
+        path.push(sanitize_file_name(untrusted_filename, "_").as_ref());
         path
     };
     let (file, file_path) = open_with_conflict_resolution(&base_path, |path| {

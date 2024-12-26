@@ -241,7 +241,7 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
         ),
         ICON_TICKET,
         |ui| {
-            ui.label(RichText::new(&code.0).size(15.).strong());
+            ui.label(RichText::new(code.to_string()).size(15.).strong());
             ui.add_space(5.);
             if ui
                 .button(format!("{ICON_CLIPBOARD_COPY} Copy Code"))
@@ -249,7 +249,7 @@ fn show_transmit_code(ui: &mut Ui, code: &Code, send_request: &SendRequest) {
                 .clicked()
                 || ui.input_mut(|input| input.consume_key(Modifiers::COMMAND, Key::C))
             {
-                ui.output_mut(|output| output.copied_text.clone_from(&code.0));
+                ui.output_mut(|output| output.copied_text = code.to_string());
             }
 
             if ui
